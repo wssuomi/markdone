@@ -1,10 +1,6 @@
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
-use std::{
-    fs::File,
-    io::{BufRead, BufReader, Write},
-    path::PathBuf,
-};
+use std::{fs::File, io::Write, path::PathBuf};
 
 #[derive(Debug, Parser)]
 struct Cli {
@@ -28,10 +24,15 @@ fn main() -> Result<()> {
         Commands::Check => todo!("add check subcommand"),
         Commands::Create => {
             let path: PathBuf = PathBuf::from("markdone.md");
-            let mut file = File::create(&path)?;
+            if path.exists() {
+                bail!("file already exists `{:?}`", &path);
+            }
+            let mut file = File::create(&path)
+                .with_context(|| format!("could not create file `{:?}`", &path))?;
             file.write_all(
                 b"### SELECTED\n\n---\n\n### INCOMPLETE\n\n---\n\n### COMPLETE\n\n---\n",
-            )?;
+            )
+            .with_context(|| format!("could not write to file `{:?}`", &path))?;
             println!("successfully created `{:?}`", &path);
         }
         Commands::List => todo!("add list subcommand"),
