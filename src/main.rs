@@ -22,7 +22,7 @@ fn main() -> Result<()> {
         Commands::Add => todo!("add add subcommand"),
         Commands::Select => todo!("add select subcommand"),
         Commands::Check => todo!("add check subcommand"),
-        Commands::Uncheck => todo!("adduncheck subcommand"),
+        Commands::Uncheck => todo!("add uncheck subcommand"),
     }
     return Ok(());
 }
