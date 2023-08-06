@@ -13,6 +13,7 @@ enum Commands {
     Select,
     Check,
     Uncheck,
+    Create,
 }
 
 fn main() -> Result<()> {
@@ -23,6 +24,7 @@ fn main() -> Result<()> {
         Commands::Select => todo!("add select subcommand"),
         Commands::Check => todo!("add check subcommand"),
         Commands::Uncheck => todo!("add uncheck subcommand"),
+        Commands::Create => todo!("add create subcommand"),
     }
     return Ok(());
 }
