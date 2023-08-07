@@ -46,6 +46,14 @@ fn get_section_end(lines: &Vec<String>, section_start: usize) -> Result<usize> {
     return Ok(section_end);
 }
 
+fn get_task_count_in_section(section: &[String]) -> usize {
+    return section
+        .iter()
+        .skip(2)
+        .take_while(|e| (e.starts_with("- [ ] ") || e.starts_with("- [x] ")))
+        .count();
+}
+
 fn main() -> Result<()> {
     let args = Cli::parse();
     match args.command {
@@ -53,21 +61,43 @@ fn main() -> Result<()> {
             let path: PathBuf = PathBuf::from("markdone.md");
             let mut lines: Vec<String> = get_lines(&path)
                 .with_context(|| format!("could not read lines from file `{:?}`", path))?;
-            let section_start = get_section_start(&lines, "INCOMPLETE")?;
-            let section_end = get_section_end(&lines, section_start)?;
-            match (section_end - section_start).cmp(&2) {
+            let incomplete_section_start = get_section_start(&lines, "INCOMPLETE")?;
+            let incomplete_section_end = get_section_end(&lines, incomplete_section_start)?;
+
+            let complete_section_start = get_section_start(&lines, "COMPLETE")?;
+            let complete_section_end = get_section_end(&lines, complete_section_start)?;
+
+            let selected_section_start = get_section_start(&lines, "SELECTED")?;
+            let selected_section_end = get_section_end(&lines, selected_section_start)?;
+
+            let task_count: usize =
+                get_task_count_in_section(&lines[incomplete_section_start..incomplete_section_end])
+                    + get_task_count_in_section(
+                        &lines[complete_section_start..complete_section_end],
+                    )
+                    + get_task_count_in_section(
+                        &lines[selected_section_start..selected_section_end],
+                    );
+
+            match (incomplete_section_end - incomplete_section_start).cmp(&2) {
                 Ordering::Equal => {
-                    lines.insert(section_end, String::from(""));
+                    lines.insert(incomplete_section_end, String::from(""));
                 }
                 _ => (),
-            }
-            lines.insert(section_start + 2, format!("- [ ] {}", task));
+            };
+            lines.insert(
+                incomplete_section_start + 2,
+                format!("- [ ] **{}**: {}", task_count, task),
+            );
             let mut file = OpenOptions::new().write(true).open(path)?;
             file.seek(SeekFrom::Start(0))?;
             for line in lines {
                 writeln!(file, "{}", line)?;
             }
-            println!("successfully added task `{:?}`", task);
+            println!(
+                "successfully added task `{:?}` with id `{:?}`",
+                task, task_count
+            );
         }
         Commands::Check => todo!("add check subcommand"),
         Commands::Create => {
