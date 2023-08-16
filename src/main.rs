@@ -97,6 +97,7 @@ fn main() -> Result<()> {
                 format!("- [ ] **{}**: {}", task_count, task),
             );
             let mut file = OpenOptions::new().write(true).open(path)?;
+            // file.set_len(lines.len() as u64)?;
             file.seek(SeekFrom::Start(0))?;
             for line in lines {
                 writeln!(file, "{}", line)?;
@@ -172,6 +173,7 @@ fn main() -> Result<()> {
             };
             lines.insert(complete_section_start + 2, task);
             let mut file = OpenOptions::new().write(true).open(path)?;
+            file.set_len(lines.len() as u64)?;
             file.seek(SeekFrom::Start(0))?;
 
             for line in lines {
@@ -256,6 +258,7 @@ fn main() -> Result<()> {
             };
             lines.insert(selected_section_start + 2, task);
             let mut file = OpenOptions::new().write(true).open(path)?;
+            file.set_len(lines.len() as u64)?;
             file.seek(SeekFrom::Start(0))?;
 
             for line in lines {
@@ -298,6 +301,7 @@ fn main() -> Result<()> {
             };
             lines.insert(incomplete_section_start + 2, task);
             let mut file = OpenOptions::new().write(true).open(path)?;
+            file.set_len(lines.len() as u64)?;
             file.seek(SeekFrom::Start(0))?;
 
             for line in lines {
