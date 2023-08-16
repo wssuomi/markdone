@@ -20,7 +20,7 @@ enum Commands {
     Create,
     List,
     Select { id: usize },
-    Uncheck,
+    Uncheck { id: usize },
 }
 
 fn get_lines(path: &PathBuf) -> Result<Vec<String>> {
@@ -263,7 +263,48 @@ fn main() -> Result<()> {
             }
             println!("successfully selected task with id `{:?}`", id);
         }
-        Commands::Uncheck => todo!("add uncheck subcommand"),
+        Commands::Uncheck { id } => {
+            let path: PathBuf = PathBuf::from("markdone.md");
+            let mut lines: Vec<String> = get_lines(&path)
+                .with_context(|| format!("could not read lines from file `{:?}`", path))?;
+            let complete_section_start = get_section_start(&lines, "COMPLETE")?;
+            let complete_section_end = get_section_end(&lines, complete_section_start)?;
+            let (task_idx, task_count): (usize, usize) = match get_task_idx_in_section(
+                &lines[complete_section_start..complete_section_end],
+                id,
+            ) {
+                Some(idx) => (
+                    idx + complete_section_start,
+                    get_task_count_in_section(&lines[complete_section_start..complete_section_end]),
+                ),
+                None => {
+                    bail!("could not find task with id `{:?}` in completed tasks", id);
+                }
+            };
+            let task = lines.remove(task_idx);
+            let mut chars: Vec<char> = task.chars().collect();
+            chars[3] = ' ';
+            let task: String = chars.into_iter().collect();
+            if task_count == 1 {
+                lines.remove(task_idx);
+            }
+            let incomplete_section_start = get_section_start(&lines, "INCOMPLETE")?;
+            let incomplete_section_end = get_section_end(&lines, incomplete_section_start)?;
+            match (incomplete_section_end - incomplete_section_start).cmp(&2) {
+                Ordering::Equal => {
+                    lines.insert(incomplete_section_end, String::from(""));
+                }
+                _ => (),
+            };
+            lines.insert(incomplete_section_start + 2, task);
+            let mut file = OpenOptions::new().write(true).open(path)?;
+            file.seek(SeekFrom::Start(0))?;
+
+            for line in lines {
+                writeln!(file, "{}", line)?;
+            }
+            println!("successfully unchecked task with id `{:?}`", id);
+        }
     }
     return Ok(());
 }
