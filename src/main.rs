@@ -19,7 +19,7 @@ enum Commands {
     Check,
     Create,
     List,
-    Select,
+    Select { id: usize },
     Uncheck,
 }
 
@@ -52,6 +52,13 @@ fn get_task_count_in_section(section: &[String]) -> usize {
         .skip(2)
         .take_while(|e| (e.starts_with("- [ ] ") || e.starts_with("- [x] ")))
         .count();
+}
+
+fn get_task_idx_in_section(section: &[String], id: usize) -> Option<usize> {
+    return section.iter().position(|e| {
+        e.starts_with(&format!("- [ ] **{}**:", id))
+            || e.starts_with(&String::from(format!("- [x] **{}**", id)))
+    });
 }
 
 fn main() -> Result<()> {
@@ -114,7 +121,79 @@ fn main() -> Result<()> {
             println!("successfully created `{:?}`", &path);
         }
         Commands::List => todo!("add list subcommand"),
-        Commands::Select => todo!("add select subcommand"),
+        Commands::Select { id } => {
+            let path: PathBuf = PathBuf::from("markdone.md");
+            let mut lines: Vec<String> = get_lines(&path)
+                .with_context(|| format!("could not read lines from file `{:?}`", path))?;
+            let incomplete_section_start = get_section_start(&lines, "INCOMPLETE")?;
+            let incomplete_section_end = get_section_end(&lines, incomplete_section_start)?;
+            let (task_idx, task_count): (usize, usize) = match get_task_idx_in_section(
+                &lines[incomplete_section_start..incomplete_section_end],
+                id,
+            ) {
+                Some(idx) => (
+                    idx + incomplete_section_start,
+                    get_task_count_in_section(
+                        &lines[incomplete_section_start..incomplete_section_end],
+                    ),
+                ),
+                None => {
+                    let complete_section_start = get_section_start(&lines, "COMPLETE")?;
+                    let complete_section_end = get_section_end(&lines, complete_section_start)?;
+
+                    match get_task_idx_in_section(
+                        &lines[complete_section_start..complete_section_end],
+                        id,
+                    ) {
+                        Some(idx) => (
+                            idx + complete_section_start,
+                            get_task_count_in_section(
+                                &lines[complete_section_start..complete_section_end],
+                            ),
+                        ),
+                        None => {
+                            let selected_section_start = get_section_start(&lines, "SELECTED")?;
+                            let selected_section_end =
+                                get_section_end(&lines, selected_section_start)?;
+                            match get_task_idx_in_section(
+                                &lines[selected_section_start..selected_section_end],
+                                id,
+                            ) {
+                                Some(idx) => (
+                                    idx + selected_section_start,
+                                    get_task_count_in_section(
+                                        &lines[selected_section_start..selected_section_end],
+                                    ),
+                                ),
+                                None => {
+                                    bail!("could not find task with id `{:?}`", id);
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            let task = lines.remove(task_idx);
+            if task_count == 1 {
+                lines.remove(task_idx);
+            }
+            let selected_section_start = get_section_start(&lines, "SELECTED")?;
+            let selected_section_end = get_section_end(&lines, selected_section_start)?;
+            match (selected_section_end - selected_section_start).cmp(&2) {
+                Ordering::Equal => {
+                    lines.insert(selected_section_end, String::from(""));
+                }
+                _ => (),
+            };
+            lines.insert(selected_section_start + 2, task);
+            let mut file = OpenOptions::new().write(true).open(path)?;
+            file.seek(SeekFrom::Start(0))?;
+
+            for line in lines {
+                writeln!(file, "{}", line)?;
+            }
+            println!("successfully selected task with id `{:?}`", id);
+        }
         Commands::Uncheck => todo!("add uncheck subcommand"),
     }
     return Ok(());
