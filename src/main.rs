@@ -217,12 +217,9 @@ fn main() -> Result<()> {
                         &lines[complete_section_start..complete_section_end],
                         id,
                     ) {
-                        Some(idx) => (
-                            idx + complete_section_start,
-                            get_task_count_in_section(
-                                &lines[complete_section_start..complete_section_end],
-                            ),
-                        ),
+                        Some(_) => {
+                            bail!("task with id `{:?}` is not incomplete", id);
+                        }
                         None => {
                             let selected_section_start = get_section_start(&lines, "SELECTED")?;
                             let selected_section_end =
