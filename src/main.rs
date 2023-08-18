@@ -34,7 +34,7 @@ enum ListCommands {
     All,
     SELECTED,
     INCOMPLETE,
-    COMPLETED,
+    COMPLETE,
 }
 
 fn get_lines(path: &PathBuf) -> Result<Vec<String>> {
@@ -296,7 +296,21 @@ fn main() -> Result<()> {
                     println!("no tasks");
                 }
             }
-            ListCommands::COMPLETED => todo!("add list complete"),
+            ListCommands::COMPLETE => {
+                let path: PathBuf = PathBuf::from("markdone.md");
+                let lines: Vec<String> = get_lines(&path)
+                    .with_context(|| format!("could not read lines from file `{:?}`", path))?;
+                let complete_section_start = get_section_start(&lines, "SELECTED")?;
+                let complete_section_end = get_section_end(&lines, complete_section_start)?;
+                let complete_tasks =
+                    get_tasks_in_section(&lines[complete_section_start..complete_section_end]);
+                println!("incomplete tasks:");
+                if complete_tasks.len() != 0 {
+                    print_tasks(complete_tasks)?;
+                } else {
+                    println!("no tasks");
+                }
+            }
         },
         Commands::Select { id } => {
             let path: PathBuf = PathBuf::from("markdone.md");
