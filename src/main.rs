@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 use std::{
     cmp::Ordering,
     fs::{File, OpenOptions},
-    io::{BufRead, BufReader, Seek, SeekFrom, Write},
+    io::{stdout, BufRead, BufReader, Seek, SeekFrom, Write},
     path::PathBuf,
 };
 
@@ -18,9 +18,23 @@ enum Commands {
     Add { task: String },
     Check { id: usize },
     Create,
-    List,
+    List(ListCommand),
     Select { id: usize },
     Uncheck { id: usize },
+}
+
+#[derive(Debug, Parser)]
+struct ListCommand {
+    #[command(subcommand)]
+    command: ListCommands,
+}
+
+#[derive(Debug, Subcommand)]
+enum ListCommands {
+    All,
+    SELECTED,
+    INCOMPLETE,
+    COMPLETED,
 }
 
 fn get_lines(path: &PathBuf) -> Result<Vec<String>> {
@@ -59,6 +73,25 @@ fn get_task_idx_in_section(section: &[String], id: usize) -> Option<usize> {
         e.starts_with(&format!("- [ ] **{}**:", id))
             || e.starts_with(&String::from(format!("- [x] **{}**", id)))
     });
+}
+
+fn get_tasks_in_section(section: &[String]) -> Vec<&String> {
+    return section
+        .iter()
+        .skip(2)
+        .take_while(|e| (e.starts_with("- [ ] ") || e.starts_with("- [x] ")))
+        .clone()
+        .collect::<Vec<&String>>();
+}
+
+fn print_tasks(tasks: Vec<&String>) -> Result<()> {
+    let stdout = stdout();
+    let mut handle = stdout.lock();
+    for t in tasks.iter() {
+        writeln!(handle, "{}", t)?;
+    }
+
+    Ok(())
 }
 
 fn main() -> Result<()> {
@@ -193,7 +226,50 @@ fn main() -> Result<()> {
             .with_context(|| format!("could not write to file `{:?}`", &path))?;
             println!("successfully created `{:?}`", &path);
         }
-        Commands::List => todo!("add list subcommand"),
+        Commands::List(command) => match command.command {
+            ListCommands::All => {
+                let path: PathBuf = PathBuf::from("markdone.md");
+                let lines: Vec<String> = get_lines(&path)
+                    .with_context(|| format!("could not read lines from file `{:?}`", path))?;
+
+                let selected_section_start = get_section_start(&lines, "SELECTED")?;
+                let selected_section_end = get_section_end(&lines, selected_section_start)?;
+                let incomplete_section_start = get_section_start(&lines, "INCOMPLETE")?;
+                let incomplete_section_end = get_section_end(&lines, incomplete_section_start)?;
+                let complete_section_start = get_section_start(&lines, "COMPLETE")?;
+                let complete_section_end = get_section_end(&lines, complete_section_start)?;
+                let selected_tasks =
+                    get_tasks_in_section(&lines[selected_section_start..selected_section_end]);
+                let incomplete_tasks =
+                    get_tasks_in_section(&lines[incomplete_section_start..incomplete_section_end]);
+                let complete_tasks =
+                    get_tasks_in_section(&lines[complete_section_start..complete_section_end]);
+
+                println!("selected tasks:");
+                if selected_tasks.len() != 0 {
+                    print_tasks(selected_tasks)?;
+                } else {
+                    println!("no tasks");
+                }
+                println!("");
+                println!("incompelte tasks:");
+                if incomplete_tasks.len() != 0 {
+                    print_tasks(incomplete_tasks)?;
+                } else {
+                    println!("no tasks");
+                }
+                println!("");
+                println!("complete tasks:");
+                if complete_tasks.len() != 0 {
+                    print_tasks(complete_tasks)?;
+                } else {
+                    println!("no tasks");
+                }
+            }
+            ListCommands::SELECTED => todo!("add list selected"),
+            ListCommands::INCOMPLETE => todo!("add list incomplete"),
+            ListCommands::COMPLETED => todo!("add list complete"),
+        },
         Commands::Select { id } => {
             let path: PathBuf = PathBuf::from("markdone.md");
             let mut lines: Vec<String> = get_lines(&path)
