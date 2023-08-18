@@ -266,7 +266,21 @@ fn main() -> Result<()> {
                     println!("no tasks");
                 }
             }
-            ListCommands::SELECTED => todo!("add list selected"),
+            ListCommands::SELECTED => {
+                let path: PathBuf = PathBuf::from("markdone.md");
+                let lines: Vec<String> = get_lines(&path)
+                    .with_context(|| format!("could not read lines from file `{:?}`", path))?;
+                let selected_section_start = get_section_start(&lines, "SELECTED")?;
+                let selected_section_end = get_section_end(&lines, selected_section_start)?;
+                let selected_tasks =
+                    get_tasks_in_section(&lines[selected_section_start..selected_section_end]);
+                println!("selected tasks:");
+                if selected_tasks.len() != 0 {
+                    print_tasks(selected_tasks)?;
+                } else {
+                    println!("no tasks");
+                }
+            }
             ListCommands::INCOMPLETE => todo!("add list incomplete"),
             ListCommands::COMPLETED => todo!("add list complete"),
         },
