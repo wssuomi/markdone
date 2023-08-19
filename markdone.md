@@ -1,5 +1,7 @@
 ### SELECTED
 
+- [ ] **0**: refactor code
+
 ---
 
 ### INCOMPLETE
@@ -10,7 +12,6 @@
 - [ ] **3**: improve list tasks output
 - [ ] **2**: add force option to move commands
 - [ ] **1**: add remove command
-- [ ] **0**: refactor code
 
 ---
 

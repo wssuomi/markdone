@@ -60,6 +60,18 @@ fn get_section_end(lines: &Vec<String>, section_start: usize) -> Result<usize> {
     return Ok(section_end);
 }
 
+fn get_section_indexes(lines: &Vec<String>, section: &str) -> Result<(usize, usize)> {
+    let start = get_section_start(lines, section)?;
+    let end = get_section_end(lines, start)?;
+    return Ok((start, end));
+}
+
+fn get_section<'a>(lines: &'a Vec<String>, section: &str) -> Result<&'a [String]> {
+    let start = get_section_start(lines, section)?;
+    let end = get_section_end(lines, start)?;
+    return Ok(&lines[start..end]);
+}
+
 fn get_task_count_in_section(section: &[String]) -> usize {
     return section
         .iter()
@@ -101,29 +113,19 @@ fn main() -> Result<()> {
             let path: PathBuf = PathBuf::from("markdone.md");
             let mut lines: Vec<String> = get_lines(&path)
                 .with_context(|| format!("could not read lines from file `{:?}`", path))?;
-            let incomplete_section_start = get_section_start(&lines, "INCOMPLETE")?;
-            let incomplete_section_end = get_section_end(&lines, incomplete_section_start)?;
+            let (incomplete_section_start, incomplete_section_end) =
+                get_section_indexes(&lines, "INCOMPLETE")?;
 
-            let complete_section_start = get_section_start(&lines, "COMPLETE")?;
-            let complete_section_end = get_section_end(&lines, complete_section_start)?;
-
-            let selected_section_start = get_section_start(&lines, "SELECTED")?;
-            let selected_section_end = get_section_end(&lines, selected_section_start)?;
+            let complete_section = get_section(&lines, "COMPLETE")?;
+            let selected_section = get_section(&lines, "SELECTED")?;
 
             let task_count: usize =
                 get_task_count_in_section(&lines[incomplete_section_start..incomplete_section_end])
-                    + get_task_count_in_section(
-                        &lines[complete_section_start..complete_section_end],
-                    )
-                    + get_task_count_in_section(
-                        &lines[selected_section_start..selected_section_end],
-                    );
+                    + get_task_count_in_section(complete_section)
+                    + get_task_count_in_section(selected_section);
 
-            match (incomplete_section_end - incomplete_section_start).cmp(&2) {
-                Ordering::Equal => {
-                    lines.insert(incomplete_section_end, String::from(""));
-                }
-                _ => (),
+            if let Ordering::Equal = (incomplete_section_end - incomplete_section_start).cmp(&2) {
+                lines.insert(incomplete_section_end, String::from(""));
             };
             lines.insert(
                 incomplete_section_start + 2,
