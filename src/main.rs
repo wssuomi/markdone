@@ -282,7 +282,7 @@ fn main() -> Result<()> {
                 let path: PathBuf = PathBuf::from("markdone.md");
                 let lines: Vec<String> = get_lines(&path)
                     .with_context(|| format!("could not read lines from file `{:?}`", path))?;
-                let incomplete_tasks = get_tasks_in_section(get_section(&lines, "SELECTED")?);
+                let incomplete_tasks = get_tasks_in_section(get_section(&lines, "INCOMPLETE")?);
                 println!("incomplete tasks:");
                 if incomplete_tasks.len() != 0 {
                     print_tasks(incomplete_tasks)?;
