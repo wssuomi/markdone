@@ -17,4 +17,6 @@
 
 ### COMPLETE
 
+- [x] **7**: change ids to make removing tasks possible
+
 ---

@@ -87,23 +87,47 @@ fn get_task_idx_in_section(section: &[String], id: usize) -> Option<usize> {
     });
 }
 
-fn get_tasks_in_section(section: &[String]) -> Vec<&String> {
+fn get_tasks_in_section(section: &[String]) -> Vec<String> {
     return section
         .iter()
         .skip(2)
         .take_while(|e| (e.starts_with("- [ ] ") || e.starts_with("- [x] ")))
-        .clone()
-        .collect::<Vec<&String>>();
+        .cloned()
+        .collect::<Vec<String>>();
 }
 
-fn print_tasks(tasks: Vec<&String>) -> Result<()> {
+fn print_tasks(tasks: Vec<String>) -> Result<()> {
     let stdout = stdout();
     let mut handle = stdout.lock();
     for t in tasks.iter() {
         writeln!(handle, "{}", t)?;
     }
-
     Ok(())
+}
+
+fn get_task_id(task: &String) -> usize {
+    return task.chars().into_iter().skip(8).take_while(|e| e != &'*').collect::<String>().parse().unwrap();
+}
+
+fn get_next_id(lines: &Vec<String>) -> Result<usize> {
+    let selected_tasks = get_tasks_in_section(get_section(&lines, "SELECTED")?);
+    let incomplete_tasks = get_tasks_in_section(get_section(&lines, "INCOMPLETE")?);
+    let complete_tasks = get_tasks_in_section(get_section(&lines, "COMPLETE")?);
+
+    let all_tasks: Vec<String> = [selected_tasks, incomplete_tasks, complete_tasks].concat();
+    if all_tasks.len() == 0 {
+        return Ok(0);
+    }
+    let mut highest_id = 0;
+
+    for task in all_tasks.iter() {
+        let task_id = get_task_id(task);
+        if task_id > highest_id {
+            highest_id = task_id
+        }
+    };
+
+    return Ok(highest_id + 1);
 }
 
 fn main() -> Result<()> {
@@ -116,20 +140,14 @@ fn main() -> Result<()> {
             let (incomplete_section_start, incomplete_section_end) =
                 get_section_indexes(&lines, "INCOMPLETE")?;
 
-            let incomplete_section = &lines[incomplete_section_start..incomplete_section_end];
-            let complete_section = get_section(&lines, "COMPLETE")?;
-            let selected_section = get_section(&lines, "SELECTED")?;
-
-            let task_count: usize = get_task_count_in_section(incomplete_section)
-                + get_task_count_in_section(complete_section)
-                + get_task_count_in_section(selected_section);
+            let id = get_next_id(&lines)?;
 
             if let Ordering::Equal = (incomplete_section_end - incomplete_section_start).cmp(&2) {
                 lines.insert(incomplete_section_end, String::from(""));
             };
             lines.insert(
                 incomplete_section_start + 2,
-                format!("- [ ] **{}**: {}", task_count, task),
+                format!("- [ ] **{}**: {}", id, task),
             );
             let mut file = OpenOptions::new().write(true).open(path)?;
             file.seek(SeekFrom::Start(0))?;
@@ -138,7 +156,7 @@ fn main() -> Result<()> {
             }
             println!(
                 "successfully added task `{:?}` with id `{:?}`",
-                task, task_count
+                task, id
             );
         }
         Commands::Check { id } => {
