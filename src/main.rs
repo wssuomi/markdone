@@ -295,9 +295,9 @@ fn main() -> Result<()> {
 
                 let lines: Vec<String> = get_lines(&path)
                     .with_context(|| format!("could not read lines from file `{:?}`", path))?;
-                let complete_tasks = get_tasks_in_section(get_section(&lines, "SELECTED")?);
+                let complete_tasks = get_tasks_in_section(get_section(&lines, "COMPLETE")?);
 
-                println!("incomplete tasks:");
+                println!("complete tasks:");
                 if complete_tasks.len() != 0 {
                     print_tasks(complete_tasks)?;
                 } else {
