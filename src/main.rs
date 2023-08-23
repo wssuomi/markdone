@@ -11,6 +11,8 @@ use std::{
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+    #[clap(short, long, help = "Enable quiet mode")]
+    quiet: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -139,6 +141,7 @@ fn get_next_id(lines: &Vec<String>) -> Result<usize> {
 
 fn main() -> Result<()> {
     let args = Cli::parse();
+    let quiet = args.quiet;
     let result: Result<(), Error> = match args.command {
         Commands::Add { task } => {
             let path: PathBuf = PathBuf::from("markdone.md");
@@ -161,7 +164,9 @@ fn main() -> Result<()> {
             for line in lines {
                 writeln!(file, "{}", line)?;
             }
-            println!("successfully added task `{:?}` with id `{:?}`", task, id);
+            if !quiet {
+                eprintln!("successfully added task `{:?}` with id `{:?}`", task, id);
+            }
             Ok(())
         }
         Commands::Check { id } => {
@@ -227,7 +232,9 @@ fn main() -> Result<()> {
             for line in lines {
                 writeln!(file, "{}", line)?;
             }
-            println!("successfully checked task with id `{:?}`", id);
+            if !quiet {
+                eprintln!("successfully checked task with id `{:?}`", id);
+            }
             Ok(())
         }
         Commands::Create => {
@@ -241,7 +248,9 @@ fn main() -> Result<()> {
                     b"### SELECTED\n\n---\n\n### INCOMPLETE\n\n---\n\n### COMPLETE\n\n---\n",
                 )
                 .with_context(|| format!("could not write to file `{:?}`", &path))?;
-                println!("successfully created `{:?}`", &path);
+                if !quiet {
+                    eprintln!("successfully created `{:?}`", &path);
+                }
                 Ok(())
             }
         }
@@ -255,23 +264,29 @@ fn main() -> Result<()> {
                 let incomplete_tasks = get_tasks_in_section(get_section(&lines, "INCOMPLETE")?);
                 let complete_tasks = get_tasks_in_section(get_section(&lines, "COMPLETE")?);
 
-                println!("selected tasks:");
+                if !quiet {
+                    eprintln!("selected tasks:");
+                }
                 if selected_tasks.len() != 0 {
                     print_tasks(selected_tasks)?;
                 } else {
-                    println!("no tasks");
+                    eprintln!("no tasks");
                 }
-                println!("\nincompelte tasks:");
+                if !quiet {
+                    eprintln!("\nincompelte tasks:");
+                }
                 if incomplete_tasks.len() != 0 {
                     print_tasks(incomplete_tasks)?;
                 } else {
-                    println!("no tasks");
+                    eprintln!("no tasks");
                 }
-                println!("\ncomplete tasks:");
+                if !quiet {
+                    eprintln!("\ncomplete tasks:");
+                }
                 if complete_tasks.len() != 0 {
                     print_tasks(complete_tasks)?;
                 } else {
-                    println!("no tasks");
+                    eprintln!("no tasks");
                 }
                 Ok(())
             }
@@ -293,7 +308,9 @@ fn main() -> Result<()> {
                 let lines: Vec<String> = get_lines(&path)
                     .with_context(|| format!("could not read lines from file `{:?}`", path))?;
                 let incomplete_tasks = get_tasks_in_section(get_section(&lines, "INCOMPLETE")?);
-                println!("incomplete tasks:");
+                if !quiet {
+                    eprintln!("incomplete tasks:");
+                }
                 if incomplete_tasks.len() != 0 {
                     print_tasks(incomplete_tasks)?;
                 } else {
@@ -428,8 +445,10 @@ fn main() -> Result<()> {
     match result {
         Ok(_) => std::process::exit(exitcode::OK),
         Err(e) => {
-            eprintln!("Error: {}", e);
-            std::process::exit(exitcode::DATAERR);
+            if !quiet {
+                eprintln!("Error: {}", e);
+            }
+            std::process::exit(exitcode::CANTCREAT);
         }
     }
 }
