@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Error, Result};
 use clap::{Parser, Subcommand};
 use std::{
     cmp::Ordering,
@@ -106,7 +106,14 @@ fn print_tasks(tasks: Vec<String>) -> Result<()> {
 }
 
 fn get_task_id(task: &String) -> usize {
-    return task.chars().into_iter().skip(8).take_while(|e| e != &'*').collect::<String>().parse().unwrap();
+    return task
+        .chars()
+        .into_iter()
+        .skip(8)
+        .take_while(|e| e != &'*')
+        .collect::<String>()
+        .parse()
+        .unwrap();
 }
 
 fn get_next_id(lines: &Vec<String>) -> Result<usize> {
@@ -125,14 +132,14 @@ fn get_next_id(lines: &Vec<String>) -> Result<usize> {
         if task_id > highest_id {
             highest_id = task_id
         }
-    };
+    }
 
     return Ok(highest_id + 1);
 }
 
 fn main() -> Result<()> {
     let args = Cli::parse();
-    match args.command {
+    let result: Result<(), Error> = match args.command {
         Commands::Add { task } => {
             let path: PathBuf = PathBuf::from("markdone.md");
             let mut lines: Vec<String> = get_lines(&path)
@@ -154,10 +161,8 @@ fn main() -> Result<()> {
             for line in lines {
                 writeln!(file, "{}", line)?;
             }
-            println!(
-                "successfully added task `{:?}` with id `{:?}`",
-                task, id
-            );
+            println!("successfully added task `{:?}` with id `{:?}`", task, id);
+            Ok(())
         }
         Commands::Check { id } => {
             let path: PathBuf = PathBuf::from("markdone.md");
@@ -223,19 +228,22 @@ fn main() -> Result<()> {
                 writeln!(file, "{}", line)?;
             }
             println!("successfully checked task with id `{:?}`", id);
+            Ok(())
         }
         Commands::Create => {
             let path: PathBuf = PathBuf::from("markdone.md");
             if path.exists() {
-                bail!("file already exists `{:?}`", &path);
+                Err(anyhow!("file already exists `{:?}`", &path))
+            } else {
+                let mut file = File::create(&path)
+                    .with_context(|| format!("could not create file `{:?}`", &path))?;
+                file.write_all(
+                    b"### SELECTED\n\n---\n\n### INCOMPLETE\n\n---\n\n### COMPLETE\n\n---\n",
+                )
+                .with_context(|| format!("could not write to file `{:?}`", &path))?;
+                println!("successfully created `{:?}`", &path);
+                Ok(())
             }
-            let mut file = File::create(&path)
-                .with_context(|| format!("could not create file `{:?}`", &path))?;
-            file.write_all(
-                b"### SELECTED\n\n---\n\n### INCOMPLETE\n\n---\n\n### COMPLETE\n\n---\n",
-            )
-            .with_context(|| format!("could not write to file `{:?}`", &path))?;
-            println!("successfully created `{:?}`", &path);
         }
         Commands::List(command) => match command.command {
             ListCommands::All => {
@@ -265,6 +273,7 @@ fn main() -> Result<()> {
                 } else {
                     println!("no tasks");
                 }
+                Ok(())
             }
             ListCommands::SELECTED => {
                 let path: PathBuf = PathBuf::from("markdone.md");
@@ -277,6 +286,7 @@ fn main() -> Result<()> {
                 } else {
                     println!("no tasks");
                 }
+                Ok(())
             }
             ListCommands::INCOMPLETE => {
                 let path: PathBuf = PathBuf::from("markdone.md");
@@ -289,6 +299,7 @@ fn main() -> Result<()> {
                 } else {
                     println!("no tasks");
                 }
+                Ok(())
             }
             ListCommands::COMPLETE => {
                 let path: PathBuf = PathBuf::from("markdone.md");
@@ -303,6 +314,7 @@ fn main() -> Result<()> {
                 } else {
                     println!("no tasks");
                 }
+                Ok(())
             }
         },
         Commands::Select { id } => {
@@ -368,6 +380,7 @@ fn main() -> Result<()> {
                 writeln!(file, "{}", line)?;
             }
             println!("successfully selected task with id `{:?}`", id);
+            Ok(())
         }
         Commands::Uncheck { id } => {
             let path: PathBuf = PathBuf::from("markdone.md");
@@ -409,7 +422,14 @@ fn main() -> Result<()> {
                 writeln!(file, "{}", line)?;
             }
             println!("successfully unchecked task with id `{:?}`", id);
+            Ok(())
+        }
+    };
+    match result {
+        Ok(_) => std::process::exit(exitcode::OK),
+        Err(e) => {
+            eprintln!("Error: {}", e);
+            std::process::exit(exitcode::DATAERR);
         }
     }
-    return Ok(());
 }
