@@ -239,19 +239,20 @@ fn main() -> Result<()> {
         }
         Commands::Create => {
             let path: PathBuf = PathBuf::from("markdone.md");
-            if path.exists() {
-                Err(anyhow!("file already exists `{:?}`", &path))
-            } else {
-                let mut file = File::create(&path)
-                    .with_context(|| format!("could not create file `{:?}`", &path))?;
-                file.write_all(
-                    b"### SELECTED\n\n---\n\n### INCOMPLETE\n\n---\n\n### COMPLETE\n\n---\n",
-                )
-                .with_context(|| format!("could not write to file `{:?}`", &path))?;
-                if !quiet {
-                    eprintln!("successfully created `{:?}`", &path);
+            match path.exists() {
+                true => Err(anyhow!("file already exists `{:?}`", &path)),
+                false => {
+                    let mut file = File::create(&path)
+                        .with_context(|| format!("could not create file `{:?}`", &path))?;
+                    file.write_all(
+                        b"### SELECTED\n\n---\n\n### INCOMPLETE\n\n---\n\n### COMPLETE\n\n---\n",
+                    )
+                    .with_context(|| format!("could not write to file `{:?}`", &path))?;
+                    if !quiet {
+                        eprintln!("successfully created `{:?}`", &path);
+                    }
+                    Ok(())
                 }
-                Ok(())
             }
         }
         Commands::List(command) => match command.command {
@@ -264,29 +265,16 @@ fn main() -> Result<()> {
                 let incomplete_tasks = get_tasks_in_section(get_section(&lines, "INCOMPLETE")?);
                 let complete_tasks = get_tasks_in_section(get_section(&lines, "COMPLETE")?);
 
-                if !quiet {
-                    eprintln!("selected tasks:");
-                }
-                if selected_tasks.len() != 0 {
+                if !quiet
+                    && selected_tasks.len() == 0
+                    && incomplete_tasks.len() == 0
+                    && complete_tasks.len() == 0
+                {
+                    eprintln!("no tasks");
+                } else {
                     print_tasks(selected_tasks)?;
-                } else {
-                    eprintln!("no tasks");
-                }
-                if !quiet {
-                    eprintln!("\nincompelte tasks:");
-                }
-                if incomplete_tasks.len() != 0 {
                     print_tasks(incomplete_tasks)?;
-                } else {
-                    eprintln!("no tasks");
-                }
-                if !quiet {
-                    eprintln!("\ncomplete tasks:");
-                }
-                if complete_tasks.len() != 0 {
                     print_tasks(complete_tasks)?;
-                } else {
-                    eprintln!("no tasks");
                 }
                 Ok(())
             }
@@ -295,11 +283,10 @@ fn main() -> Result<()> {
                 let lines: Vec<String> = get_lines(&path)
                     .with_context(|| format!("could not read lines from file `{:?}`", path))?;
                 let selected_tasks = get_tasks_in_section(get_section(&lines, "SELECTED")?);
-                println!("selected tasks:");
-                if selected_tasks.len() != 0 {
-                    print_tasks(selected_tasks)?;
+                if !quiet && selected_tasks.len() == 0 {
+                    eprintln!("no tasks");
                 } else {
-                    println!("no tasks");
+                    print_tasks(selected_tasks)?;
                 }
                 Ok(())
             }
@@ -308,13 +295,10 @@ fn main() -> Result<()> {
                 let lines: Vec<String> = get_lines(&path)
                     .with_context(|| format!("could not read lines from file `{:?}`", path))?;
                 let incomplete_tasks = get_tasks_in_section(get_section(&lines, "INCOMPLETE")?);
-                if !quiet {
-                    eprintln!("incomplete tasks:");
-                }
-                if incomplete_tasks.len() != 0 {
-                    print_tasks(incomplete_tasks)?;
+                if !quiet && incomplete_tasks.len() == 0 {
+                    eprintln!("no tasks");
                 } else {
-                    println!("no tasks");
+                    print_tasks(incomplete_tasks)?;
                 }
                 Ok(())
             }
@@ -325,11 +309,10 @@ fn main() -> Result<()> {
                     .with_context(|| format!("could not read lines from file `{:?}`", path))?;
                 let complete_tasks = get_tasks_in_section(get_section(&lines, "COMPLETE")?);
 
-                println!("complete tasks:");
-                if complete_tasks.len() != 0 {
-                    print_tasks(complete_tasks)?;
+                if !quiet && complete_tasks.len() == 0 {
+                    eprintln!("no tasks");
                 } else {
-                    println!("no tasks");
+                    print_tasks(complete_tasks)?;
                 }
                 Ok(())
             }
@@ -396,7 +379,9 @@ fn main() -> Result<()> {
             for line in lines {
                 writeln!(file, "{}", line)?;
             }
-            println!("successfully selected task with id `{:?}`", id);
+            if !quiet {
+                eprintln!("successfully selected task with id `{:?}`", id);
+            }
             Ok(())
         }
         Commands::Uncheck { id } => {
@@ -438,7 +423,9 @@ fn main() -> Result<()> {
             for line in lines {
                 writeln!(file, "{}", line)?;
             }
-            println!("successfully unchecked task with id `{:?}`", id);
+            if !quiet {
+                eprintln!("successfully unchecked task with id `{:?}`", id);
+            }
             Ok(())
         }
     };
@@ -448,7 +435,7 @@ fn main() -> Result<()> {
             if !quiet {
                 eprintln!("Error: {}", e);
             }
-            std::process::exit(exitcode::CANTCREAT);
+            std::process::exit(exitcode::USAGE);
         }
     }
 }
