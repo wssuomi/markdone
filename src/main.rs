@@ -98,11 +98,13 @@ fn get_tasks_in_section(section: &[String]) -> Vec<String> {
         .collect::<Vec<String>>();
 }
 
-fn print_tasks(tasks: Vec<String>) -> Result<()> {
+fn print_tasks(tasks: Vec<String>, section: &str) -> Result<()> {
     let stdout = stdout();
     let mut handle = stdout.lock();
     for t in tasks.iter() {
-        writeln!(handle, "{}", t)?;
+        let id: String = t.chars().skip(8).take_while(|x| x != &'*').collect();
+        let task: String = t.chars().skip_while(|x| x != &':').skip(2).collect();
+        writeln!(handle, "{}\t{}\t{}", section, id, task)?;
     }
     Ok(())
 }
@@ -272,9 +274,13 @@ fn main() -> Result<()> {
                 {
                     eprintln!("no tasks");
                 } else {
-                    print_tasks(selected_tasks)?;
-                    print_tasks(incomplete_tasks)?;
-                    print_tasks(complete_tasks)?;
+                    if !quiet {
+                        eprintln!("status\t\tid\ttask");
+                        eprintln!("=============================")
+                    }
+                    print_tasks(selected_tasks, "selected")?;
+                    print_tasks(incomplete_tasks, "incomplete")?;
+                    print_tasks(complete_tasks, "complete")?;
                 }
                 Ok(())
             }
@@ -286,7 +292,11 @@ fn main() -> Result<()> {
                 if !quiet && selected_tasks.len() == 0 {
                     eprintln!("no tasks");
                 } else {
-                    print_tasks(selected_tasks)?;
+                    if !quiet {
+                        eprintln!("status\t\tid\ttask");
+                        eprintln!("=============================")
+                    }
+                    print_tasks(selected_tasks, "selected")?;
                 }
                 Ok(())
             }
@@ -298,7 +308,11 @@ fn main() -> Result<()> {
                 if !quiet && incomplete_tasks.len() == 0 {
                     eprintln!("no tasks");
                 } else {
-                    print_tasks(incomplete_tasks)?;
+                    if !quiet {
+                        eprintln!("status\t\tid\ttask");
+                        eprintln!("=============================")
+                    }
+                    print_tasks(incomplete_tasks, "incomplete")?;
                 }
                 Ok(())
             }
@@ -312,7 +326,11 @@ fn main() -> Result<()> {
                 if !quiet && complete_tasks.len() == 0 {
                     eprintln!("no tasks");
                 } else {
-                    print_tasks(complete_tasks)?;
+                    if !quiet {
+                        eprintln!("status\t\tid\ttask");
+                        eprintln!("=============================")
+                    }
+                    print_tasks(complete_tasks, "complete")?;
                 }
                 Ok(())
             }
