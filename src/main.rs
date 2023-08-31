@@ -285,8 +285,8 @@ fn main() -> Result<()> {
                     eprintln!("no tasks");
                 } else {
                     if !quiet {
-                        eprintln!("status\t\tid\ttask");
-                        eprintln!("----------------------------");
+                        println!("status\t\tid\ttask");
+                        println!("----------------------------");
                     }
                     print_tasks(selected_tasks, "selected")?;
                     print_tasks(incomplete_tasks, "incomplete")?;
@@ -303,8 +303,8 @@ fn main() -> Result<()> {
                     eprintln!("no tasks");
                 } else {
                     if !quiet {
-                        eprintln!("status\t\tid\ttask");
-                        eprintln!("----------------------------");
+                        println!("status\t\tid\ttask");
+                        println!("----------------------------");
                     }
                     print_tasks(selected_tasks, "selected")?;
                 }
@@ -319,8 +319,8 @@ fn main() -> Result<()> {
                     eprintln!("no tasks");
                 } else {
                     if !quiet {
-                        eprintln!("status\t\tid\ttask");
-                        eprintln!("----------------------------");
+                        println!("status\t\tid\ttask");
+                        println!("----------------------------");
                     }
                     print_tasks(incomplete_tasks, "incomplete")?;
                 }
@@ -337,8 +337,8 @@ fn main() -> Result<()> {
                     eprintln!("no tasks");
                 } else {
                     if !quiet {
-                        eprintln!("status\t\tid\ttask");
-                        eprintln!("----------------------------");
+                        println!("status\t\tid\ttask");
+                        println!("----------------------------");
                     }
                     print_tasks(complete_tasks, "complete")?;
                 }
