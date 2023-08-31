@@ -7,12 +7,16 @@ use std::{
     path::PathBuf,
 };
 
+const DEFAULT_TASK_FILE: &str = "markdone.md";
+
 #[derive(Debug, Parser)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
     #[clap(short, long, help = "Enable quiet mode")]
     quiet: bool,
+    #[clap(short, long, help = "Specify task file")]
+    file: Option<PathBuf>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -154,9 +158,12 @@ fn get_next_id(lines: &Vec<String>) -> Result<usize> {
 fn main() -> Result<()> {
     let args = Cli::parse();
     let quiet = args.quiet;
+    let path = match args.file {
+        Some(p) => p,
+        None => PathBuf::from(DEFAULT_TASK_FILE),
+    };
     let result: Result<(), Error> = match args.command {
         Commands::Add { task } => {
-            let path: PathBuf = PathBuf::from("markdone.md");
             let mut lines: Vec<String> = get_lines(&path)
                 .with_context(|| format!("could not read lines from file `{:?}`", path))?;
             let (incomplete_section_start, incomplete_section_end) =
@@ -182,7 +189,6 @@ fn main() -> Result<()> {
             Ok(())
         }
         Commands::Check { id } => {
-            let path: PathBuf = PathBuf::from("markdone.md");
             let mut lines: Vec<String> = get_lines(&path)
                 .with_context(|| format!("could not read lines from file `{:?}`", path))?;
 
@@ -249,27 +255,23 @@ fn main() -> Result<()> {
             }
             Ok(())
         }
-        Commands::Create => {
-            let path: PathBuf = PathBuf::from("markdone.md");
-            match path.exists() {
-                true => Err(anyhow!("file already exists `{:?}`", &path)),
-                false => {
-                    let mut file = File::create(&path)
-                        .with_context(|| format!("could not create file `{:?}`", &path))?;
-                    file.write_all(
-                        b"### SELECTED\n\n---\n\n### INCOMPLETE\n\n---\n\n### COMPLETE\n\n---\n",
-                    )
-                    .with_context(|| format!("could not write to file `{:?}`", &path))?;
-                    if !quiet {
-                        eprintln!("successfully created `{:?}`", &path);
-                    }
-                    Ok(())
+        Commands::Create => match path.exists() {
+            true => Err(anyhow!("file already exists `{:?}`", &path)),
+            false => {
+                let mut file = File::create(&path)
+                    .with_context(|| format!("could not create file `{:?}`", &path))?;
+                file.write_all(
+                    b"### SELECTED\n\n---\n\n### INCOMPLETE\n\n---\n\n### COMPLETE\n\n---\n",
+                )
+                .with_context(|| format!("could not write to file `{:?}`", &path))?;
+                if !quiet {
+                    eprintln!("successfully created `{:?}`", &path);
                 }
+                Ok(())
             }
-        }
+        },
         Commands::List(command) => match command.command {
             ListCommands::All => {
-                let path: PathBuf = PathBuf::from("markdone.md");
                 let lines: Vec<String> = get_lines(&path)
                     .with_context(|| format!("could not read lines from file `{:?}`", path))?;
 
@@ -295,7 +297,6 @@ fn main() -> Result<()> {
                 Ok(())
             }
             ListCommands::SELECTED => {
-                let path: PathBuf = PathBuf::from("markdone.md");
                 let lines: Vec<String> = get_lines(&path)
                     .with_context(|| format!("could not read lines from file `{:?}`", path))?;
                 let selected_tasks = get_tasks_in_section(get_section(&lines, "SELECTED")?);
@@ -311,7 +312,6 @@ fn main() -> Result<()> {
                 Ok(())
             }
             ListCommands::INCOMPLETE => {
-                let path: PathBuf = PathBuf::from("markdone.md");
                 let lines: Vec<String> = get_lines(&path)
                     .with_context(|| format!("could not read lines from file `{:?}`", path))?;
                 let incomplete_tasks = get_tasks_in_section(get_section(&lines, "INCOMPLETE")?);
@@ -327,8 +327,6 @@ fn main() -> Result<()> {
                 Ok(())
             }
             ListCommands::COMPLETE => {
-                let path: PathBuf = PathBuf::from("markdone.md");
-
                 let lines: Vec<String> = get_lines(&path)
                     .with_context(|| format!("could not read lines from file `{:?}`", path))?;
                 let complete_tasks = get_tasks_in_section(get_section(&lines, "COMPLETE")?);
@@ -346,7 +344,6 @@ fn main() -> Result<()> {
             }
         },
         Commands::Select { id } => {
-            let path: PathBuf = PathBuf::from("markdone.md");
             let mut lines: Vec<String> = get_lines(&path)
                 .with_context(|| format!("could not read lines from file `{:?}`", path))?;
 
@@ -413,7 +410,6 @@ fn main() -> Result<()> {
             Ok(())
         }
         Commands::Uncheck { id } => {
-            let path: PathBuf = PathBuf::from("markdone.md");
             let mut lines: Vec<String> = get_lines(&path)
                 .with_context(|| format!("could not read lines from file `{:?}`", path))?;
 
