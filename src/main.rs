@@ -17,11 +17,17 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+    /// Add new task to task list
     Add { task: String },
+    /// Mark task as complete
     Check { id: usize },
+    /// Create new task list
     Create,
+    /// Show tasks from task list
     List(ListCommand),
+    /// Mark task as selected
     Select { id: usize },
+    /// Mark task as incomplete
     Uncheck { id: usize },
 }
 
@@ -33,9 +39,13 @@ struct ListCommand {
 
 #[derive(Debug, Subcommand)]
 enum ListCommands {
+    /// Show all tasks
     All,
+    /// Only show selected tasks
     SELECTED,
+    /// Only show incomplete tasks
     INCOMPLETE,
+    /// Only show complete tasks
     COMPLETE,
 }
 

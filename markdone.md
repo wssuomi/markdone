@@ -17,6 +17,7 @@
 
 ### COMPLETE
 
+- [x] **8**: add commmand descriptions
 - [x] **7**: change ids to make removing tasks possible
 
 ---
