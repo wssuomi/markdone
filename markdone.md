@@ -6,6 +6,7 @@
 
 ### INCOMPLETE
 
+- [ ] **10**: change list subcommands to flags
 - [ ] **9**: add unselect command
 - [ ] **6**: add edit commmand
 - [ ] **5**: add format command
