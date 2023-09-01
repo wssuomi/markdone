@@ -285,7 +285,7 @@ fn main() -> Result<()> {
                 } else {
                     if !quiet {
                         println!("status\t\tid\ttask");
-                        println!("----------------------------");
+                        println!("------\t\t--\t----");
                     }
                     print_tasks(selected_tasks, "selected")?;
                     print_tasks(incomplete_tasks, "incomplete")?;
@@ -301,7 +301,7 @@ fn main() -> Result<()> {
                 } else {
                     if !quiet {
                         println!("status\t\tid\ttask");
-                        println!("----------------------------");
+                        println!("------\t\t--\t----");
                     }
                     print_tasks(selected_tasks, "selected")?;
                 }
@@ -315,7 +315,7 @@ fn main() -> Result<()> {
                 } else {
                     if !quiet {
                         println!("status\t\tid\ttask");
-                        println!("----------------------------");
+                        println!("------\t\t--\t----");
                     }
                     print_tasks(incomplete_tasks, "incomplete")?;
                 }
@@ -330,7 +330,7 @@ fn main() -> Result<()> {
                 } else {
                     if !quiet {
                         println!("status\t\tid\ttask");
-                        println!("----------------------------");
+                        println!("------\t\t--\t----");
                     }
                     print_tasks(complete_tasks, "complete")?;
                 }
