@@ -1,6 +1,5 @@
 ### SELECTED
 
-- [ ] **10**: change list subcommands to flags
 - [ ] **0**: refactor code
 
 ---
@@ -17,6 +16,7 @@
 
 ### COMPLETE
 
+- [x] **10**: change list subcommands to flags
 - [x] **4**: add option to specify task file
 - [x] **3**: improve list tasks output
 - [x] **8**: add commmand descriptions

@@ -28,7 +28,7 @@ enum Commands {
     /// Create new task list
     Create,
     /// Show tasks from task list
-    List(ListCommand),
+    List(ListOption),
     /// Mark task as selected
     Select { id: usize },
     /// Mark task as incomplete
@@ -36,21 +36,15 @@ enum Commands {
 }
 
 #[derive(Debug, Parser)]
-struct ListCommand {
-    #[command(subcommand)]
-    command: ListCommands,
-}
-
-#[derive(Debug, Subcommand)]
-enum ListCommands {
-    /// Show all tasks
-    All,
-    /// Only show selected tasks
-    SELECTED,
-    /// Only show incomplete tasks
-    INCOMPLETE,
-    /// Only show complete tasks
-    COMPLETE,
+struct ListOption {
+    #[clap(short, long, help = "Show all tasks")]
+    all: bool,
+    #[clap(short, long, help = "Only show selected tasks")]
+    selected: bool,
+    #[clap(short, long, help = "Only show incomplete")]
+    incomplete: bool,
+    #[clap(short, long, help = "Only show complete")]
+    complete: bool,
 }
 
 fn get_lines(path: &PathBuf) -> Result<Vec<String>> {
@@ -267,75 +261,40 @@ fn main() -> Result<()> {
                 }
             }
         },
-        Commands::List(command) => match command.command {
-            ListCommands::All => {
-                let lines: Vec<String> = get_lines(&path)
-                    .with_context(|| format!("could not read lines from file `{:?}`", path))?;
+        Commands::List(command) => {
+            let lines: Vec<String> = get_lines(&path)
+                .with_context(|| format!("could not read lines from file `{:?}`", path))?;
+            let list_all =
+                command.all | !(command.complete | command.incomplete | command.selected);
+            let selected_tasks: Option<Vec<String>> = if command.selected | list_all {
+                Some(get_tasks_in_section(get_section(&lines, "SELECTED")?))
+            } else {
+                None
+            };
+            let incomplete_tasks: Option<Vec<String>> = if command.incomplete | list_all {
+                Some(get_tasks_in_section(get_section(&lines, "INCOMPLETE")?))
+            } else {
+                None
+            };
+            let complete_tasks: Option<Vec<String>> = if command.complete | list_all {
+                Some(get_tasks_in_section(get_section(&lines, "COMPLETE")?))
+            } else {
+                None
+            };
 
-                let selected_tasks = get_tasks_in_section(get_section(&lines, "SELECTED")?);
-                let incomplete_tasks = get_tasks_in_section(get_section(&lines, "INCOMPLETE")?);
-                let complete_tasks = get_tasks_in_section(get_section(&lines, "COMPLETE")?);
-
-                if !quiet
-                    && selected_tasks.len() == 0
-                    && incomplete_tasks.len() == 0
-                    && complete_tasks.len() == 0
-                {
-                    eprintln!("no tasks");
-                } else {
-                    if !quiet {
-                        println!("status\t\tid\ttask");
-                        println!("------\t\t--\t----");
-                    }
-                    print_tasks(selected_tasks, "selected")?;
-                    print_tasks(incomplete_tasks, "incomplete")?;
-                    print_tasks(complete_tasks, "complete")?;
-                }
+            if !quiet {
+                println!("status\t\tid\ttask\n------\t\t--\t----");
             }
-            ListCommands::SELECTED => {
-                let lines: Vec<String> = get_lines(&path)
-                    .with_context(|| format!("could not read lines from file `{:?}`", path))?;
-                let selected_tasks = get_tasks_in_section(get_section(&lines, "SELECTED")?);
-                if !quiet && selected_tasks.len() == 0 {
-                    eprintln!("no tasks");
-                } else {
-                    if !quiet {
-                        println!("status\t\tid\ttask");
-                        println!("------\t\t--\t----");
-                    }
-                    print_tasks(selected_tasks, "selected")?;
-                }
+            if let Some(tasks) = selected_tasks {
+                print_tasks(tasks, "selected")?;
             }
-            ListCommands::INCOMPLETE => {
-                let lines: Vec<String> = get_lines(&path)
-                    .with_context(|| format!("could not read lines from file `{:?}`", path))?;
-                let incomplete_tasks = get_tasks_in_section(get_section(&lines, "INCOMPLETE")?);
-                if !quiet && incomplete_tasks.len() == 0 {
-                    eprintln!("no tasks");
-                } else {
-                    if !quiet {
-                        println!("status\t\tid\ttask");
-                        println!("------\t\t--\t----");
-                    }
-                    print_tasks(incomplete_tasks, "incomplete")?;
-                }
+            if let Some(tasks) = incomplete_tasks {
+                print_tasks(tasks, "incomplete")?;
             }
-            ListCommands::COMPLETE => {
-                let lines: Vec<String> = get_lines(&path)
-                    .with_context(|| format!("could not read lines from file `{:?}`", path))?;
-                let complete_tasks = get_tasks_in_section(get_section(&lines, "COMPLETE")?);
-
-                if !quiet && complete_tasks.len() == 0 {
-                    eprintln!("no tasks");
-                } else {
-                    if !quiet {
-                        println!("status\t\tid\ttask");
-                        println!("------\t\t--\t----");
-                    }
-                    print_tasks(complete_tasks, "complete")?;
-                }
+            if let Some(tasks) = complete_tasks {
+                print_tasks(tasks, "complete")?;
             }
-        },
+        }
         Commands::Select { id } => {
             let mut lines: Vec<String> = get_lines(&path)
                 .with_context(|| format!("could not read lines from file `{:?}`", path))?;
