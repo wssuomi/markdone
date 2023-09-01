@@ -26,9 +26,9 @@ enum Commands {
     /// Mark task as complete
     Check { id: usize },
     /// Create new task list
-    Create,
+    Create(CreateOptions),
     /// Show tasks from task list
-    List(ListOption),
+    List(ListOptions),
     /// Mark task as selected
     Select { id: usize },
     /// Mark task as incomplete
@@ -36,7 +36,7 @@ enum Commands {
 }
 
 #[derive(Debug, Parser)]
-struct ListOption {
+struct ListOptions {
     #[clap(short, long, help = "Show all tasks")]
     all: bool,
     #[clap(short, long, help = "Only show selected tasks")]
@@ -45,6 +45,12 @@ struct ListOption {
     incomplete: bool,
     #[clap(short, long, help = "Only show complete")]
     complete: bool,
+}
+
+#[derive(Debug, Parser)]
+struct CreateOptions {
+    #[clap(short, long, help = "Specify task file")]
+    file: Option<PathBuf>,
 }
 
 fn get_lines(path: &PathBuf) -> Result<Vec<String>> {
@@ -247,36 +253,42 @@ fn main() -> Result<()> {
                 eprintln!("successfully checked task with id `{:?}`", id);
             }
         }
-        Commands::Create => match path.exists() {
-            true => bail!("file `{:?}` already exists", &path),
-            false => {
-                let mut file = File::create(&path)
-                    .with_context(|| format!("could not create file `{:?}`", &path))?;
-                file.write_all(
-                    b"### SELECTED\n\n---\n\n### INCOMPLETE\n\n---\n\n### COMPLETE\n\n---\n",
-                )
-                .with_context(|| format!("could not write to file `{:?}`", &path))?;
-                if !quiet {
-                    eprintln!("successfully created `{:?}`", &path);
+        Commands::Create(options) => {
+            let path = match options.file {
+                Some(p) => p,
+                None => path,
+            };
+            match path.exists() {
+                true => bail!("file `{:?}` already exists", &path),
+                false => {
+                    let mut file = File::create(&path)
+                        .with_context(|| format!("could not create file `{:?}`", &path))?;
+                    file.write_all(
+                        b"### SELECTED\n\n---\n\n### INCOMPLETE\n\n---\n\n### COMPLETE\n\n---\n",
+                    )
+                    .with_context(|| format!("could not write to file `{:?}`", &path))?;
+                    if !quiet {
+                        eprintln!("successfully created `{:?}`", &path);
+                    }
                 }
             }
-        },
-        Commands::List(command) => {
+        }
+        Commands::List(options) => {
             let lines: Vec<String> = get_lines(&path)
                 .with_context(|| format!("could not read lines from file `{:?}`", path))?;
             let list_all =
-                command.all | !(command.complete | command.incomplete | command.selected);
-            let selected_tasks: Option<Vec<String>> = if command.selected | list_all {
+                options.all | !(options.complete | options.incomplete | options.selected);
+            let selected_tasks: Option<Vec<String>> = if options.selected | list_all {
                 Some(get_tasks_in_section(get_section(&lines, "SELECTED")?))
             } else {
                 None
             };
-            let incomplete_tasks: Option<Vec<String>> = if command.incomplete | list_all {
+            let incomplete_tasks: Option<Vec<String>> = if options.incomplete | list_all {
                 Some(get_tasks_in_section(get_section(&lines, "INCOMPLETE")?))
             } else {
                 None
             };
-            let complete_tasks: Option<Vec<String>> = if command.complete | list_all {
+            let complete_tasks: Option<Vec<String>> = if options.complete | list_all {
                 Some(get_tasks_in_section(get_section(&lines, "COMPLETE")?))
             } else {
                 None

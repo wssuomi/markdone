@@ -6,6 +6,9 @@
 
 ### INCOMPLETE
 
+- [ ] **14**: add --select option to uncheck command
+- [ ] **13**: add --select option to add command
+- [ ] **12**: add --complete option to add command
 - [ ] **9**: add unselect command
 - [ ] **6**: add edit commmand
 - [ ] **5**: add format command
@@ -16,6 +19,7 @@
 
 ### COMPLETE
 
+- [x] **11**: add --file for create command
 - [x] **10**: change list subcommands to flags
 - [x] **4**: add option to specify task file
 - [x] **3**: improve list tasks output
