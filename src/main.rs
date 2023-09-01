@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Context, Error, Result};
+use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use std::{
     cmp::Ordering,
@@ -162,7 +162,7 @@ fn main() -> Result<()> {
         Some(p) => p,
         None => PathBuf::from(DEFAULT_TASK_FILE),
     };
-    let result: Result<(), Error> = match args.command {
+    match args.command {
         Commands::Add { task } => {
             let mut lines: Vec<String> = get_lines(&path)
                 .with_context(|| format!("could not read lines from file `{:?}`", path))?;
@@ -186,7 +186,6 @@ fn main() -> Result<()> {
             if !quiet {
                 eprintln!("successfully added task `{:?}` with id `{:?}`", task, id);
             }
-            Ok(())
         }
         Commands::Check { id } => {
             let mut lines: Vec<String> = get_lines(&path)
@@ -253,10 +252,9 @@ fn main() -> Result<()> {
             if !quiet {
                 eprintln!("successfully checked task with id `{:?}`", id);
             }
-            Ok(())
         }
         Commands::Create => match path.exists() {
-            true => Err(anyhow!("file already exists `{:?}`", &path)),
+            true => bail!("file `{:?}` already exists", &path),
             false => {
                 let mut file = File::create(&path)
                     .with_context(|| format!("could not create file `{:?}`", &path))?;
@@ -267,7 +265,6 @@ fn main() -> Result<()> {
                 if !quiet {
                     eprintln!("successfully created `{:?}`", &path);
                 }
-                Ok(())
             }
         },
         Commands::List(command) => match command.command {
@@ -294,7 +291,6 @@ fn main() -> Result<()> {
                     print_tasks(incomplete_tasks, "incomplete")?;
                     print_tasks(complete_tasks, "complete")?;
                 }
-                Ok(())
             }
             ListCommands::SELECTED => {
                 let lines: Vec<String> = get_lines(&path)
@@ -309,7 +305,6 @@ fn main() -> Result<()> {
                     }
                     print_tasks(selected_tasks, "selected")?;
                 }
-                Ok(())
             }
             ListCommands::INCOMPLETE => {
                 let lines: Vec<String> = get_lines(&path)
@@ -324,7 +319,6 @@ fn main() -> Result<()> {
                     }
                     print_tasks(incomplete_tasks, "incomplete")?;
                 }
-                Ok(())
             }
             ListCommands::COMPLETE => {
                 let lines: Vec<String> = get_lines(&path)
@@ -340,7 +334,6 @@ fn main() -> Result<()> {
                     }
                     print_tasks(complete_tasks, "complete")?;
                 }
-                Ok(())
             }
         },
         Commands::Select { id } => {
@@ -407,7 +400,6 @@ fn main() -> Result<()> {
             if !quiet {
                 eprintln!("successfully selected task with id `{:?}`", id);
             }
-            Ok(())
         }
         Commands::Uncheck { id } => {
             let mut lines: Vec<String> = get_lines(&path)
@@ -450,16 +442,7 @@ fn main() -> Result<()> {
             if !quiet {
                 eprintln!("successfully unchecked task with id `{:?}`", id);
             }
-            Ok(())
         }
     };
-    match result {
-        Ok(_) => std::process::exit(exitcode::OK),
-        Err(e) => {
-            if !quiet {
-                eprintln!("Error: {}", e);
-            }
-            std::process::exit(exitcode::USAGE);
-        }
-    }
+    return Ok(());
 }
