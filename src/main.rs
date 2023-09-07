@@ -33,6 +33,8 @@ enum Commands {
     Select { id: usize },
     /// Mark task as incomplete
     Uncheck { id: usize },
+    /// Deselect a selected task
+    Deselect { id: usize },
 }
 
 #[derive(Debug, Parser)]
@@ -412,6 +414,49 @@ fn main() -> Result<()> {
             }
             if !quiet {
                 eprintln!("successfully unchecked task with id `{:?}`", id);
+            }
+        }
+        Commands::Deselect { id } => {
+            let mut lines: Vec<String> = get_lines(&path)
+                .with_context(|| format!("could not read lines from file `{:?}`", path))?;
+
+            let (selected_section_start, selected_section_end) =
+                get_section_indexes(&lines, "SELECTED")?;
+            let selected_section = &lines[selected_section_start..selected_section_end];
+
+            let (task_idx, task_count): (usize, usize) =
+                match get_task_idx_in_section(selected_section, id) {
+                    Some(idx) => (
+                        idx + selected_section_start,
+                        get_task_count_in_section(selected_section),
+                    ),
+                    None => {
+                        bail!("could not find task with id `{:?}`", id);
+                    }
+                };
+            let task = lines.remove(task_idx);
+            if task_count == 1 {
+                lines.remove(task_idx);
+            }
+            let (incomplete_section_start, incomplete_section_end) =
+                get_section_indexes(&lines, "INCOMPLETE")?;
+
+            match (incomplete_section_end - incomplete_section_start).cmp(&2) {
+                Ordering::Equal => {
+                    lines.insert(incomplete_section_end, String::from(""));
+                }
+                _ => (),
+            };
+            lines.insert(incomplete_section_start + 2, task);
+            let mut file = OpenOptions::new().write(true).open(path)?;
+            file.set_len(lines.len() as u64)?;
+            file.seek(SeekFrom::Start(0))?;
+
+            for line in lines {
+                writeln!(file, "{}", line)?;
+            }
+            if !quiet {
+                eprintln!("successfully deselected task with id `{:?}`", id);
             }
         }
     };
