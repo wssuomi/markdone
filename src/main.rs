@@ -22,17 +22,26 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Commands {
     /// Add new task to task list
-    Add { task: String },
+    Add {
+        /// Task text
+        task: String,
+    },
     /// Mark task as complete
-    Check { id: usize },
+    Check {
+        /// Task ID
+        id: usize,
+    },
     /// Create new task list
     Create(CreateOptions),
     /// Show tasks from task list
     List(ListOptions),
     /// Mark task as selected
-    Select { id: usize },
+    Select {
+        /// Task ID
+        id: usize,
+    },
     /// Mark task as incomplete
-    Uncheck { id: usize },
+    Uncheck(UncheckOptions),
     /// Deselect a selected task
     Deselect { id: usize },
 }
@@ -47,6 +56,14 @@ struct ListOptions {
     incomplete: bool,
     #[clap(short, long, help = "Only show complete")]
     complete: bool,
+}
+
+#[derive(Debug, Parser)]
+struct UncheckOptions {
+    #[clap(short, long, help = "Select task")]
+    select: bool,
+    /// Task ID
+    id: usize,
 }
 
 #[derive(Debug, Parser)]
@@ -374,7 +391,13 @@ fn main() -> Result<()> {
                 eprintln!("successfully selected task with id `{:?}`", id);
             }
         }
-        Commands::Uncheck { id } => {
+        Commands::Uncheck(options) => {
+            let id = options.id;
+            let new_section = if options.select {
+                "SELECTED"
+            } else {
+                "INCOMPLETE"
+            };
             let mut lines: Vec<String> = get_lines(&path)
                 .with_context(|| format!("could not read lines from file `{:?}`", path))?;
 
@@ -399,12 +422,11 @@ fn main() -> Result<()> {
             if task_count == 1 {
                 lines.remove(task_idx);
             }
-            let (incomplete_section_start, incomplete_section_end) =
-                get_section_indexes(&lines, "INCOMPLETE")?;
-            if let Ordering::Equal = (incomplete_section_end - incomplete_section_start).cmp(&2) {
-                lines.insert(incomplete_section_end, String::from(""));
+            let (new_section_start, new_section_end) = get_section_indexes(&lines, new_section)?;
+            if (new_section_end - new_section_start) == 2 {
+                lines.insert(new_section_end, String::from(""));
             };
-            lines.insert(incomplete_section_start + 2, task);
+            lines.insert(new_section_start + 2, task);
             let mut file = OpenOptions::new().write(true).open(path)?;
             file.set_len(lines.len() as u64)?;
             file.seek(SeekFrom::Start(0))?;
