@@ -1,7 +1,8 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::{Parser, Subcommand};
 use std::{
     cmp::Ordering,
+    fmt::Display,
     fs::{File, OpenOptions},
     io::{stdout, BufRead, BufReader, Seek, SeekFrom, Write},
     path::PathBuf,
@@ -72,10 +73,118 @@ struct CreateOptions {
     file: Option<PathBuf>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+enum TaskStatus {
+    Selected,
+    Incomplete,
+    Complete,
+}
+
+impl Display for TaskStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TaskStatus::Selected => write!(f, "selected"),
+            TaskStatus::Incomplete => write!(f, "incomplete"),
+            TaskStatus::Complete => write!(f, "complete"),
+        }
+    }
+}
+
+impl TryFrom<&String> for TaskStatus {
+    type Error = anyhow::Error;
+    fn try_from(section: &String) -> std::result::Result<Self, Self::Error> {
+        if section == "### SELECTED" {
+            return Ok(TaskStatus::Selected);
+        }
+        if section == "### INCOMPLETE" {
+            return Ok(TaskStatus::Incomplete);
+        }
+        if section == "### COMPLETE" {
+            return Ok(TaskStatus::Complete);
+        }
+        return Err(anyhow!("Error: could not find status"));
+    }
+}
+
+#[derive(Debug)]
+struct Task {
+    id: usize,
+    task: String,
+    task_status: TaskStatus,
+}
+
+impl TryFrom<(String, TaskStatus)> for Task {
+    type Error = anyhow::Error;
+    fn try_from(
+        (task, task_status): (String, TaskStatus),
+    ) -> std::result::Result<Self, Self::Error> {
+        let completed: bool = if task.starts_with("- [ ] **") || task.starts_with("- [x] **") {
+            task.chars().nth(3).unwrap() != 'x'
+        } else {
+            return Err(anyhow!("Error: Start of String {:?} is not valid", task));
+        };
+        if completed {
+            if let TaskStatus::Complete = task_status {
+                return Err(anyhow!("Error: non complete task cannot be complete"));
+            }
+        }
+        let id: usize = match task
+            .chars()
+            .into_iter()
+            .skip(8)
+            .take_while(|c| c != &'*')
+            .collect::<String>()
+            .parse()
+        {
+            Ok(id) => id,
+            Err(err) => return Err(anyhow!("Error: {}", err)),
+        };
+        let task: String = task
+            .chars()
+            .into_iter()
+            .skip_while(|e| e != &':')
+            .skip(2)
+            .collect();
+        return Ok(Task {
+            id,
+            task,
+            task_status,
+        });
+    }
+}
+
+impl Display for Task {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}\t{}\t{}", self.task_status, self.id, self.task)
+    }
+}
+
 fn get_lines(path: &PathBuf) -> Result<Vec<String>> {
     return Ok(BufReader::new(File::open(path)?)
         .lines()
         .collect::<Result<_, _>>()?);
+}
+
+fn get_tasks_in_sections(lines: Vec<String>, sections: Vec<TaskStatus>) -> Vec<Task> {
+    let mut status: Option<TaskStatus> = None;
+    lines
+        .into_iter()
+        .filter_map(|line| {
+            if let Ok(s) = TaskStatus::try_from(&line) {
+                if sections.contains(&s) {
+                    status = Some(s);
+                }
+                None
+            } else if let Some(s) = status.clone() {
+                match Task::try_from((line, s)) {
+                    Ok(t) => Some(t),
+                    Err(_) => None,
+                }
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 fn get_section_start(lines: &Vec<String>, section: &str) -> Result<usize> {
@@ -129,17 +238,6 @@ fn get_tasks_in_section(section: &[String]) -> Vec<String> {
         .take_while(|e| (e.starts_with("- [ ] ") || e.starts_with("- [x] ")))
         .cloned()
         .collect::<Vec<String>>();
-}
-
-fn print_tasks(tasks: Vec<String>, section: &str) -> Result<()> {
-    let stdout = stdout();
-    let mut handle = stdout.lock();
-    for t in tasks.iter() {
-        let id: String = t.chars().skip(8).take_while(|x| x != &'*').collect();
-        let task: String = t.chars().skip_while(|x| x != &':').skip(2).collect();
-        writeln!(handle, "{}\t{}\t{}", section, id, task)?;
-    }
-    Ok(())
 }
 
 fn get_task_id(task: &String) -> usize {
@@ -295,35 +393,26 @@ fn main() -> Result<()> {
         Commands::List(options) => {
             let lines: Vec<String> = get_lines(&path)
                 .with_context(|| format!("could not read lines from file `{:?}`", path))?;
+            let mut sections: Vec<TaskStatus> = vec![];
             let list_all =
                 options.all | !(options.complete | options.incomplete | options.selected);
-            let selected_tasks: Option<Vec<String>> = if options.selected | list_all {
-                Some(get_tasks_in_section(get_section(&lines, "SELECTED")?))
-            } else {
-                None
-            };
-            let incomplete_tasks: Option<Vec<String>> = if options.incomplete | list_all {
-                Some(get_tasks_in_section(get_section(&lines, "INCOMPLETE")?))
-            } else {
-                None
-            };
-            let complete_tasks: Option<Vec<String>> = if options.complete | list_all {
-                Some(get_tasks_in_section(get_section(&lines, "COMPLETE")?))
-            } else {
-                None
-            };
-
+            if options.selected | list_all {
+                sections.push(TaskStatus::Selected);
+            }
+            if options.incomplete | list_all {
+                sections.push(TaskStatus::Incomplete);
+            }
+            if options.complete | list_all {
+                sections.push(TaskStatus::Complete);
+            }
+            let tasks = get_tasks_in_sections(lines, sections);
             if !quiet {
                 println!("status\t\tid\ttask\n------\t\t--\t----");
             }
-            if let Some(tasks) = selected_tasks {
-                print_tasks(tasks, "selected")?;
-            }
-            if let Some(tasks) = incomplete_tasks {
-                print_tasks(tasks, "incomplete")?;
-            }
-            if let Some(tasks) = complete_tasks {
-                print_tasks(tasks, "complete")?;
+            let stdout = stdout();
+            let mut handle = stdout.lock();
+            for t in tasks.iter() {
+                writeln!(handle, "{}", t)?;
             }
         }
         Commands::Select { id } => {
