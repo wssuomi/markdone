@@ -91,6 +91,16 @@ impl Display for TaskStatus {
     }
 }
 
+impl TaskStatus {
+    fn all() -> Vec<TaskStatus> {
+        return vec![
+            TaskStatus::Selected,
+            TaskStatus::Incomplete,
+            TaskStatus::Complete,
+        ];
+    }
+}
+
 impl TryFrom<&String> for TaskStatus {
     type Error = anyhow::Error;
     fn try_from(section: &String) -> std::result::Result<Self, Self::Error> {
@@ -114,17 +124,29 @@ struct Task {
     task_status: TaskStatus,
 }
 
+impl Task {
+    fn to_markdown(&self) -> String {
+        let completed = if let TaskStatus::Complete = self.task_status {
+            'x'
+        } else {
+            ' '
+        };
+
+        return format!("- [{}] **{}**: {}", completed, self.id, self.task);
+    }
+}
+
 impl TryFrom<(String, TaskStatus)> for Task {
     type Error = anyhow::Error;
     fn try_from(
         (task, task_status): (String, TaskStatus),
     ) -> std::result::Result<Self, Self::Error> {
         let completed: bool = if task.starts_with("- [ ] **") || task.starts_with("- [x] **") {
-            task.chars().nth(3).unwrap() != 'x'
+            task.chars().nth(3).unwrap() == 'x'
         } else {
             return Err(anyhow!("Error: Start of String {:?} is not valid", task));
         };
-        if completed {
+        if !completed {
             if let TaskStatus::Complete = task_status {
                 return Err(anyhow!("Error: non complete task cannot be complete"));
             }
@@ -212,8 +234,55 @@ fn get_section_indexes(lines: &Vec<String>, section: TaskStatus) -> Result<(usiz
 
 fn get_section<'a>(lines: &'a Vec<String>, section: TaskStatus) -> Result<&'a [String]> {
     let start = get_section_start(lines, section)?;
-    let end = get_section_end(lines, start)?;
-    return Ok(&lines[start..end]);
+    return Ok(&lines[start..get_section_end(lines, start)?]);
+}
+
+fn move_task_to_section(id: usize, path: PathBuf, section: TaskStatus) -> Result<()> {
+    let lines: Vec<String> =
+        get_lines(&path).with_context(|| format!("could not read lines from file `{:?}`", path))?;
+    let mut tasks = get_tasks_in_sections(lines, TaskStatus::all());
+    for task in tasks.iter_mut() {
+        if task.id == id {
+            task.task_status = section;
+            break;
+        }
+    }
+    write_tasks_to_file(path, tasks)?;
+    return Ok(());
+}
+
+fn write_tasks_to_file(path: PathBuf, tasks: Vec<Task>) -> Result<()> {
+    let mut lines: Vec<String> = vec![];
+    for (i, s) in TaskStatus::all().into_iter().enumerate() {
+        lines = add_section(lines, &tasks, s);
+        if i < TaskStatus::all().len() - 1 {
+            lines.push(String::from(""));
+        }
+    }
+    let mut file = OpenOptions::new().write(true).open(path)?;
+    file.set_len(lines.len() as u64)?;
+    file.seek(SeekFrom::Start(0))?;
+    for line in lines {
+        writeln!(file, "{}", line)?;
+    }
+    return Ok(());
+}
+
+fn add_section(mut lines: Vec<String>, tasks: &Vec<Task>, section: TaskStatus) -> Vec<String> {
+    lines.push(format!("### {}", section.to_string().to_uppercase()));
+    lines.push(String::from(""));
+    let filtered_tasks = tasks
+        .iter()
+        .filter(|e| e.task_status == section)
+        .collect::<Vec<&Task>>();
+    if filtered_tasks.len() != 0 {
+        for t in filtered_tasks {
+            lines.push(t.to_markdown());
+        }
+        lines.push(String::from(""));
+    }
+    lines.push(String::from("---"));
+    return lines;
 }
 
 fn get_task_count_in_section(section: &[String]) -> usize {
@@ -277,67 +346,7 @@ fn main() -> Result<()> {
             }
         }
         Commands::Check { id } => {
-            let mut lines: Vec<String> = get_lines(&path)
-                .with_context(|| format!("could not read lines from file `{:?}`", path))?;
-
-            let complete_section = get_section(&lines, TaskStatus::Complete)?;
-
-            let (task_idx, task_count): (usize, usize) =
-                match get_task_idx_in_section(complete_section, id) {
-                    Some(_) => {
-                        bail!("task with id `{:?}` is already checked", id);
-                    }
-                    None => {
-                        let (selected_section_start, selected_section_end) =
-                            get_section_indexes(&lines, TaskStatus::Selected)?;
-                        let selected_section = &lines[selected_section_start..selected_section_end];
-
-                        match get_task_idx_in_section(selected_section, id) {
-                            Some(idx) => (
-                                idx + selected_section_start,
-                                get_task_count_in_section(selected_section),
-                            ),
-                            None => {
-                                let (incomplete_section_start, incomplete_section_end) =
-                                    get_section_indexes(&lines, TaskStatus::Incomplete)?;
-                                let incomplete_section =
-                                    &lines[incomplete_section_start..incomplete_section_end];
-                                match get_task_idx_in_section(incomplete_section, id) {
-                                    Some(idx) => (
-                                        idx + incomplete_section_start,
-                                        get_task_count_in_section(incomplete_section),
-                                    ),
-                                    None => {
-                                        bail!("could not find task with id `{:?}`", id);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                };
-            let task = lines.remove(task_idx);
-            let mut chars: Vec<char> = task.chars().collect();
-            chars[3] = 'x';
-            let task: String = chars.into_iter().collect();
-            if task_count == 1 {
-                lines.remove(task_idx);
-            }
-            let (complete_section_start, complete_section_end) =
-                get_section_indexes(&lines, TaskStatus::Complete)?;
-            match (complete_section_end - complete_section_start).cmp(&2) {
-                Ordering::Equal => {
-                    lines.insert(complete_section_end, String::from(""));
-                }
-                _ => (),
-            };
-            lines.insert(complete_section_start + 2, task);
-            let mut file = OpenOptions::new().write(true).open(path)?;
-            file.set_len(lines.len() as u64)?;
-            file.seek(SeekFrom::Start(0))?;
-
-            for line in lines {
-                writeln!(file, "{}", line)?;
-            }
+            move_task_to_section(id, path, TaskStatus::Complete)?;
             if !quiet {
                 eprintln!("successfully checked task with id `{:?}`", id);
             }
