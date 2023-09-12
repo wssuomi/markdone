@@ -244,11 +244,11 @@ fn move_task_to_section(id: usize, path: PathBuf, section: TaskStatus) -> Result
     for task in tasks.iter_mut() {
         if task.id == id {
             task.task_status = section;
-            break;
+            write_tasks_to_file(path, tasks)?;
+            return Ok(());
         }
     }
-    write_tasks_to_file(path, tasks)?;
-    return Ok(());
+    bail!("could not find task with id `{:?}`", id);
 }
 
 fn write_tasks_to_file(path: PathBuf, tasks: Vec<Task>) -> Result<()> {
