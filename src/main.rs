@@ -231,12 +231,20 @@ fn get_section_indexes(lines: &Vec<String>, section: TaskStatus) -> Result<(usiz
     return Ok((start, get_section_end(lines, start)?));
 }
 
-fn move_task_to_section(id: usize, path: PathBuf, section: TaskStatus) -> Result<()> {
+fn move_task_to_section(
+    id: usize,
+    path: PathBuf,
+    section: TaskStatus,
+    allowed_sections: Vec<TaskStatus>,
+) -> Result<()> {
     let lines: Vec<String> =
         get_lines(&path).with_context(|| format!("could not read lines from file `{:?}`", path))?;
     let mut tasks = get_tasks_in_sections(lines, TaskStatus::all());
     for task in tasks.iter_mut() {
         if task.id == id {
+            if allowed_sections.contains(&task.task_status) {
+                bail!("cannot move task from section `{:?}`", task.task_status);
+            }
             task.task_status = section;
             write_tasks_to_file(path, tasks)?;
             return Ok(());
@@ -325,7 +333,7 @@ fn main() -> Result<()> {
             }
         }
         Commands::Check { id } => {
-            move_task_to_section(id, path, TaskStatus::Complete)?;
+            move_task_to_section(id, path, TaskStatus::Complete, vec![TaskStatus::Complete])?;
             if !quiet {
                 eprintln!("successfully checked task with id `{:?}`", id);
             }
@@ -376,7 +384,7 @@ fn main() -> Result<()> {
             }
         }
         Commands::Select { id } => {
-            move_task_to_section(id, path, TaskStatus::Selected)?;
+            move_task_to_section(id, path, TaskStatus::Selected, vec![])?;
             if !quiet {
                 eprintln!("successfully selected task with id `{:?}`", id);
             }
@@ -388,13 +396,23 @@ fn main() -> Result<()> {
             } else {
                 TaskStatus::Incomplete
             };
-            move_task_to_section(id, path, new_section)?;
+            move_task_to_section(
+                id,
+                path,
+                new_section,
+                vec![TaskStatus::Selected, TaskStatus::Incomplete],
+            )?;
             if !quiet {
                 eprintln!("successfully unchecked task with id `{:?}`", id);
             }
         }
         Commands::Deselect { id } => {
-            move_task_to_section(id, path, TaskStatus::Incomplete)?;
+            move_task_to_section(
+                id,
+                path,
+                TaskStatus::Incomplete,
+                vec![TaskStatus::Incomplete, TaskStatus::Complete],
+            )?;
             if !quiet {
                 eprintln!("successfully deselected task with id `{:?}`", id);
             }
