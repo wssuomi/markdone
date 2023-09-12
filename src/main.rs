@@ -23,10 +23,7 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Commands {
     /// Add new task to task list
-    Add {
-        /// Task text
-        task: String,
-    },
+    Add(AddOptions),
     /// Mark task as complete
     Check {
         /// Task ID
@@ -71,6 +68,14 @@ struct UncheckOptions {
 struct CreateOptions {
     #[clap(short, long, help = "Specify task file")]
     file: Option<PathBuf>,
+}
+
+#[derive(Debug, Parser)]
+struct AddOptions {
+    /// Task text
+    task: String,
+    #[clap(short, long, help = "Complete added task")]
+    complete: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -314,17 +319,31 @@ fn main() -> Result<()> {
         None => PathBuf::from(DEFAULT_TASK_FILE),
     };
     match args.command {
-        Commands::Add { task } => {
+        Commands::Add(options) => {
+            let task = options.task;
+            let section = if options.complete {
+                TaskStatus::Complete
+            } else {
+                TaskStatus::Incomplete
+            };
+            let completed = if section == TaskStatus::Complete {
+                'x'
+            } else {
+                ' '
+            };
             let mut lines: Vec<String> = get_lines(&path)
                 .with_context(|| format!("could not read lines from file `{:?}`", path))?;
-            let (section_start, section_end) = get_section_indexes(&lines, TaskStatus::Incomplete)?;
+            let (section_start, section_end) = get_section_indexes(&lines, section)?;
 
             let id = get_next_id(&lines);
 
             if (section_end - section_start) == 2 {
                 lines.insert(section_end, String::from(""));
             }
-            lines.insert(section_start + 2, format!("- [ ] **{}**: {}", id, task));
+            lines.insert(
+                section_start + 2,
+                format!("- [{}] **{}**: {}", completed, id, task),
+            );
             let mut file = OpenOptions::new().write(true).open(path)?;
             file.seek(SeekFrom::Start(0))?;
             for line in lines {

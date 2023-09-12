@@ -4,17 +4,17 @@
 
 ### INCOMPLETE
 
-- [ ] **13**: add --select option to add command
-- [ ] **12**: add --complete option to add command
 - [ ] **6**: add edit commmand
 - [ ] **5**: add format command
 - [ ] **2**: add force option to move commands
 - [ ] **1**: add remove command
+- [ ] **13**: add --select option to add command
 
 ---
 
 ### COMPLETE
 
+- [x] **12**: add --complete option to add command
 - [x] **0**: refactor code
 - [x] **14**: add --select option to uncheck command
 - [x] **9**: add unselect command
