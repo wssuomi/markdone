@@ -74,6 +74,8 @@ struct CreateOptions {
 struct AddOptions {
     /// Task text
     task: String,
+    #[clap(short, long, help = "Select added task")]
+    select: bool,
     #[clap(short, long, help = "Complete added task")]
     complete: bool,
 }
@@ -323,6 +325,8 @@ fn main() -> Result<()> {
             let task = options.task;
             let section = if options.complete {
                 TaskStatus::Complete
+            } else if options.select {
+                TaskStatus::Selected
             } else {
                 TaskStatus::Incomplete
             };
