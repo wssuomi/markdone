@@ -1,7 +1,5 @@
 ### SELECTED
 
-- [ ] **0**: refactor code
-
 ---
 
 ### INCOMPLETE
@@ -17,6 +15,7 @@
 
 ### COMPLETE
 
+- [x] **0**: refactor code
 - [x] **14**: add --select option to uncheck command
 - [x] **9**: add unselect command
 - [x] **11**: add --file for create command

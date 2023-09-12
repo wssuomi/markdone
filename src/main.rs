@@ -195,6 +195,8 @@ fn get_tasks_in_sections(lines: Vec<String>, sections: Vec<TaskStatus>) -> Vec<T
             if let Ok(s) = TaskStatus::try_from(&line) {
                 if sections.contains(&s) {
                     status = Some(s);
+                } else {
+                    status = None;
                 }
                 None
             } else if let Some(s) = status.clone() {
