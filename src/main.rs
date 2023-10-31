@@ -42,6 +42,13 @@ enum Commands {
     Uncheck(UncheckOptions),
     /// Deselect a selected task
     Deselect { id: usize },
+    /// Edit a task
+    Edit {
+        /// Id of task
+        id: usize,
+        /// Updated task text
+        task: String,
+    },
 }
 
 #[derive(Debug, Parser)]
@@ -440,6 +447,30 @@ fn main() -> Result<()> {
             )?;
             if !quiet {
                 eprintln!("successfully deselected task with id `{:?}`", id);
+            }
+        }
+        Commands::Edit { id, task } => {
+            let lines: Vec<String> = get_lines(&path)
+                .with_context(|| format!("could not read lines from file `{:?}`", path))?;
+            let mut tasks = get_tasks_in_sections(
+                lines,
+                vec![
+                    TaskStatus::Incomplete,
+                    TaskStatus::Complete,
+                    TaskStatus::Selected,
+                ],
+            );
+            match tasks.iter_mut().find(|e| e.id == id) {
+                Some(t) => {
+                    t.task = task;
+                }
+                None => {
+                    bail!("could not find task with id `{:?}`", id);
+                }
+            }
+            write_tasks_to_file(path, tasks)?;
+            if !quiet {
+                eprintln!("successfully edited task with id `{:?}`", id);
             }
         }
     };

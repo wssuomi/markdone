@@ -4,7 +4,6 @@
 
 ### INCOMPLETE
 
-- [ ] **6**: add edit commmand
 - [ ] **5**: add format command
 - [ ] **2**: add force option to move commands
 - [ ] **1**: add remove command
@@ -13,6 +12,7 @@
 
 ### COMPLETE
 
+- [x] **6**: add edit commmand
 - [x] **13**: add --select option to add command
 - [x] **12**: add --complete option to add command
 - [x] **0**: refactor code
