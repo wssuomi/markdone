@@ -49,6 +49,11 @@ enum Commands {
         /// Updated task text
         task: String,
     },
+    /// Delete a task
+    Delete {
+        /// Id of task
+        id: usize,
+    },
 }
 
 #[derive(Debug, Parser)]
@@ -471,6 +476,30 @@ fn main() -> Result<()> {
             write_tasks_to_file(path, tasks)?;
             if !quiet {
                 eprintln!("successfully edited task with id `{:?}`", id);
+            }
+        }
+        Commands::Delete { id } => {
+            let lines: Vec<String> = get_lines(&path)
+                .with_context(|| format!("could not read lines from file `{:?}`", path))?;
+            let mut tasks = get_tasks_in_sections(
+                lines,
+                vec![
+                    TaskStatus::Incomplete,
+                    TaskStatus::Complete,
+                    TaskStatus::Selected,
+                ],
+            );
+            match tasks.iter_mut().position(|e| e.id == id) {
+                Some(i) => {
+                    tasks.remove(i);
+                }
+                None => {
+                    bail!("could not find task with id `{:?}`", id);
+                }
+            }
+            write_tasks_to_file(path, tasks)?;
+            if !quiet {
+                eprintln!("successfully deleted task with id `{:?}`", id);
             }
         }
     };
