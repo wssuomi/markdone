@@ -1,5 +1,10 @@
 use clap::{Parser, Subcommand};
-use std::{path::{Path, PathBuf}, process::exit};
+use std::{
+    ffi::OsStr,
+    fs::read_dir,
+    path::{Path, PathBuf},
+    process::exit,
+};
 
 const DEFAULT_TASK_DIR: &str = "tasks";
 
@@ -22,7 +27,7 @@ enum Commands {
 fn find_dir(target: PathBuf) -> Result<Option<PathBuf>, std::io::Error> {
     let mut p = Path::new(".");
     while p.parent().is_some() {
-        let dir_content = std::fs::read_dir(p)?;
+        let dir_content = read_dir(p)?;
         for e in dir_content {
             if let Ok(e) = e {
                 if let Ok(ef) = e.file_type() {
@@ -39,15 +44,68 @@ fn find_dir(target: PathBuf) -> Result<Option<PathBuf>, std::io::Error> {
     return Ok(None);
 }
 
+fn find_tasks(tasks_dir: PathBuf) -> Result<Vec<PathBuf>, std::io::Error> {
+    let mut tasks: Vec<PathBuf> = vec![];
+    for tasks_dir_entry in read_dir(tasks_dir)? {
+        let tasks_dir_entry = match tasks_dir_entry {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Skipping entry - {}", e);
+                continue;
+            }
+        };
+        if let Ok(ft) = tasks_dir_entry.file_type() {
+            if !ft.is_dir() {
+                continue;
+            }
+        }
+        let dir_content = match read_dir(tasks_dir_entry.path()) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Skipping entry - {}", e);
+                continue;
+            }
+        };
+        for dir_entry in dir_content {
+            let dir_entry = match dir_entry {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("Skipping entry - {}", e);
+                    continue;
+                }
+            };
+            match dir_entry.file_type() {
+                Ok(v) => {
+                    if v.is_file() && dir_entry.file_name() == OsStr::new("TASK.md") {
+                        tasks.push(dir_entry.path());
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Skipping entry - {}", e);
+                    continue;
+                }
+            }
+        }
+    }
+    Ok(tasks)
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
-    if let Some(tasks_dir) = find_dir(PathBuf::from(DEFAULT_TASK_DIR))? {
-        println!("{:?}", tasks_dir.file_name().unwrap());
-    } else {
-        return Err(format!("Could not find tasks directory `{}`", DEFAULT_TASK_DIR).into())
-    }
     match args.command {
-        Commands::List => todo!("List command"),
+        Commands::List => {
+            if let Some(tasks_dir) = find_dir(PathBuf::from(DEFAULT_TASK_DIR))? {
+                if let Ok(tasks) = find_tasks(tasks_dir) {
+                    println!("{:?}", tasks);
+                } else {
+                    return Err("Unable to get tasks".into());
+                }
+            } else {
+                return Err(
+                    format!("Could not find tasks directory `{}`", DEFAULT_TASK_DIR).into(),
+                );
+            }
+        }
         Commands::Close { id } => todo!("Close command"),
         Commands::Open { id } => todo!("Open command"),
     };
