@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use std::{
     ffi::OsStr,
+    fmt::Display,
     fs::read_dir,
     path::{Path, PathBuf},
 };
@@ -9,6 +10,7 @@ const DEFAULT_TASK_DIR: &str = "tasks";
 
 #[derive(Debug)]
 struct Task {
+    path: PathBuf,
     title: String,
     status: TaskStatus,
     priority: u32,
@@ -35,6 +37,21 @@ enum Commands {
     Close { id: usize },
     /// Open task
     Open { id: usize },
+}
+
+impl Display for Task {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[ {} ]: [{}][{}] - {}", self.path.display(), self.status,  self.priority, self.title )
+    }
+}
+
+impl Display for TaskStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}" ,match self {
+            TaskStatus::Open => "Open",
+            TaskStatus::Closed => "Closed",
+        })
+    }
 }
 
 fn find_dir(target: PathBuf) -> Result<Option<PathBuf>, std::io::Error> {
@@ -146,6 +163,7 @@ fn parse_task_file(path: &Path) -> Result<Task, Box<dyn std::error::Error>> {
     }
     let description = lines.collect::<Vec<_>>().join("\n");
     return Ok(Task {
+        path: PathBuf::from(path),
         title,
         status,
         priority,
@@ -160,7 +178,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Some(tasks_dir) = find_dir(PathBuf::from(DEFAULT_TASK_DIR))? {
                 if let Ok(tasks) = find_tasks(tasks_dir) {
                     for tp in tasks {
-                        println!("{:?}", parse_task_file(tp.as_path()));
+                        if let Ok(t) = parse_task_file(tp.as_path()) {
+                            println!("{}", t);
+                        } else {
+                           eprintln!("Unable to get task {}", tp.display());
+                        }
                     }
                 } else {
                     return Err("Unable to get tasks".into());
