@@ -3,15 +3,28 @@ use std::{
     ffi::OsStr,
     fs::read_dir,
     path::{Path, PathBuf},
-    process::exit,
 };
 
 const DEFAULT_TASK_DIR: &str = "tasks";
+
+#[derive(Debug)]
+struct Task {
+    title: String,
+    status: TaskStatus,
+    priority: u32,
+    description: String,
+}
 
 #[derive(Debug, Parser)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+}
+
+#[derive(Debug)]
+enum TaskStatus {
+    Open,
+    Closed,
 }
 
 #[derive(Debug, Subcommand)]
@@ -90,13 +103,65 @@ fn find_tasks(tasks_dir: PathBuf) -> Result<Vec<PathBuf>, std::io::Error> {
     Ok(tasks)
 }
 
+fn parse_task_file(path: &Path) -> Result<Task, Box<dyn std::error::Error>> {
+    let content = std::fs::read_to_string(path)?;
+    let mut lines = content.lines();
+    let title_line = lines.next().ok_or("Missing title line")?;
+    let title = title_line
+        .strip_prefix("# ")
+        .ok_or(format!(
+            "Expected line starting with '# ' found '{}'",
+            title_line
+        ))?
+        .to_string();
+    let empty_line = lines.next().ok_or("Missing empty line after title")?;
+    if !empty_line.is_empty() {
+        return Err(format!("expected empty line after title found '{}'", empty_line).into());
+    }
+    let status_line = lines.next().ok_or("Missing status line")?;
+    let status = status_line.strip_prefix("STATUS: ").ok_or_else(|| {
+        format!(
+            "Expected line starting with 'STATUS: ' found '{}'",
+            status_line
+        )
+    })?;
+    let status = match status {
+        "CLOSED" => TaskStatus::Closed,
+        "OPEN" => TaskStatus::Open,
+        _ => return Err(format!("Expected 'OPEN' or 'CLOSED' found '{status}'").into()),
+    };
+    let priority_line = lines.next().ok_or("Missing priority line")?;
+    let priority = priority_line.strip_prefix("PRIORITY: ").ok_or_else(|| {
+        format!(
+            "Expected line starting with 'PRIORITY: ' found '{}'",
+            priority_line
+        )
+    })?;
+    let priority = priority
+        .parse::<u32>()
+        .map_err(|_| format!("invalid priority '{}'", priority))?;
+    let empty_line = lines.next().ok_or("Missing empty line fields")?;
+    if !empty_line.is_empty() {
+        return Err(format!("expected empty line after fields found '{}'", empty_line).into());
+    }
+    let description = lines.collect::<Vec<_>>().join("\n");
+    return Ok(Task {
+        title,
+        status,
+        priority,
+        description,
+    });
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
     match args.command {
         Commands::List => {
             if let Some(tasks_dir) = find_dir(PathBuf::from(DEFAULT_TASK_DIR))? {
                 if let Ok(tasks) = find_tasks(tasks_dir) {
-                    println!("{:?}", tasks);
+                    for tp in tasks {
+                        println!("{:?}", parse_task_file(tp.as_path()));
+                    }
                 } else {
                     return Err("Unable to get tasks".into());
                 }
