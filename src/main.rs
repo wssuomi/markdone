@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use std::{
+    env,
     ffi::OsStr,
     fmt::Display,
     fs::read_dir,
@@ -41,37 +42,50 @@ enum Commands {
 
 impl Display for Task {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[ {} ]: [{}][{}] - {}", self.path.display(), self.status,  self.priority, self.title )
+        write!(
+            f,
+            "[ {} ]: [{}][{}] - {}",
+            self.path.display(),
+            self.status,
+            self.priority,
+            self.title
+        )
     }
 }
 
 impl Display for TaskStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}" ,match self {
-            TaskStatus::Open => "Open",
-            TaskStatus::Closed => "Closed",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                TaskStatus::Open => "Open",
+                TaskStatus::Closed => "Closed",
+            }
+        )
     }
 }
 
-fn find_dir(target: PathBuf) -> Result<Option<PathBuf>, std::io::Error> {
-    let mut p = Path::new(".");
-    while p.parent().is_some() {
-        let dir_content = read_dir(p)?;
+fn find_dir(target: &str) -> Result<Option<PathBuf>, std::io::Error> {
+    let mut p = env::current_dir()?;
+    loop {
+        let dir_content = read_dir(&p)?;
         for e in dir_content {
-            if let Ok(e) = e {
-                if let Ok(ef) = e.file_type() {
-                    if ef.is_dir()
-                        && e.file_name() == target.file_name().expect("File name should be valid")
-                    {
-                        return Ok(Some(e.path()));
-                    }
+            let e = match e {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+            if let Ok(ft) = e.file_type() {
+                if !ft.is_file() && e.file_name() == OsStr::new(target) {
+                    return Ok(Some(e.path()));
                 }
             }
         }
-        p = p.parent().unwrap();
+        p = match p.parent() {
+            Some(v) => v.to_path_buf(),
+            None => return Ok(None),
+        };
     }
-    return Ok(None);
 }
 
 fn find_tasks(tasks_dir: PathBuf) -> Result<Vec<PathBuf>, std::io::Error> {
@@ -157,7 +171,7 @@ fn parse_task_file(path: &Path) -> Result<Task, Box<dyn std::error::Error>> {
     let priority = priority
         .parse::<u32>()
         .map_err(|_| format!("invalid priority '{}'", priority))?;
-    let empty_line = lines.next().ok_or("Missing empty line fields")?;
+    let empty_line = lines.next().ok_or("Missing empty line after fields")?;
     if !empty_line.is_empty() {
         return Err(format!("expected empty line after fields found '{}'", empty_line).into());
     }
@@ -175,14 +189,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
     match args.command {
         Commands::List => {
-            if let Some(tasks_dir) = find_dir(PathBuf::from(DEFAULT_TASK_DIR))? {
+            if let Some(tasks_dir) = find_dir(DEFAULT_TASK_DIR)? {
                 if let Ok(tasks) = find_tasks(tasks_dir) {
+                    let mut parsed_tasks: Vec<Task> = vec![];
                     for tp in tasks {
-                        if let Ok(t) = parse_task_file(tp.as_path()) {
-                            println!("{}", t);
-                        } else {
-                           eprintln!("Unable to get task {}", tp.display());
+                        match parse_task_file(tp.as_path()) {
+                            Ok(t) => {
+                                parsed_tasks.push(t);
+                            }
+                            Err(e) => {
+                                eprintln!(
+                                    "Warning: Unable to read task '{}' - '{}'",
+                                    tp.display(),
+                                    e.to_string()
+                                );
+                            }
                         }
+                    }
+                    for t in parsed_tasks {
+                        println!("{}", t);
                     }
                 } else {
                     return Err("Unable to get tasks".into());
