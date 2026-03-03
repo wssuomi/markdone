@@ -44,7 +44,7 @@ impl Display for Task {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "[ {} ]: [{}][{}] - {}",
+            "[ {} ]: [{}, {}] - {}",
             self.path.display(),
             self.status,
             self.priority,
@@ -150,7 +150,7 @@ fn parse_task_file(path: &Path) -> Result<Task, Box<dyn std::error::Error>> {
         return Err(format!("expected empty line after title found '{}'", empty_line).into());
     }
     let status_line = lines.next().ok_or("Missing status line")?;
-    let status = status_line.strip_prefix("STATUS: ").ok_or_else(|| {
+    let status = status_line.strip_prefix("- STATUS: ").ok_or_else(|| {
         format!(
             "Expected line starting with 'STATUS: ' found '{}'",
             status_line
@@ -162,7 +162,7 @@ fn parse_task_file(path: &Path) -> Result<Task, Box<dyn std::error::Error>> {
         _ => return Err(format!("Expected 'OPEN' or 'CLOSED' found '{status}'").into()),
     };
     let priority_line = lines.next().ok_or("Missing priority line")?;
-    let priority = priority_line.strip_prefix("PRIORITY: ").ok_or_else(|| {
+    let priority = priority_line.strip_prefix("- PRIORITY: ").ok_or_else(|| {
         format!(
             "Expected line starting with 'PRIORITY: ' found '{}'",
             priority_line
